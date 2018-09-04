@@ -52,7 +52,10 @@ class Point2DEnv(MultitaskEnv, Serializable):
         self.boundary_dist = boundary_dist
         self.ball_radius = ball_radius
         self.walls = walls
-        self.fixed_goal = fixed_goal
+        self.fixed_goal = (
+            np.array(fixed_goal, dtype=np.float32)
+            if fixed_goal is not None
+            else None)
         self.randomize_position_on_reset = randomize_position_on_reset
         self.images_are_rgb = images_are_rgb
 
@@ -114,14 +117,25 @@ class Point2DEnv(MultitaskEnv, Serializable):
             size=2, low=-self.max_target_distance, high=self.max_target_distance
         )
 
-    def reset(self):
-        self._target_position = np.random.uniform(
-            size=2, low=-self.max_target_distance, high=self.max_target_distance
-        )
+    def get_reset_positions(self, N=1):
         if self.randomize_position_on_reset:
-            self._position = np.random.uniform(
-                size=2, low=-self.boundary_dist, high=self.boundary_dist
-            )
+            positions = np.random.uniform(
+                size=(N, 2), low=-self.boundary_dist, high=self.boundary_dist)
+        else:
+            positions = np.tile(self._position, (N, 1))
+
+        return positions
+
+    def get_reset_position(self):
+        position = self.get_reset_positions(N=1)[0, ...]
+        return position
+
+    def reset(self):
+        # self._target_position = np.random.uniform(
+        #     size=2, low=-self.max_target_distance, high=self.max_target_distance
+        # )
+        self._target_position = np.array(self.fixed_goal)
+        self._position = self.get_reset_position()
         return self._get_obs()
 
     def _position_inside_wall(self, pos):
@@ -183,7 +197,7 @@ class Point2DEnv(MultitaskEnv, Serializable):
         return pos
 
     def sample_goals(self, batch_size):
-        if not self.fixed_goal is None:
+        if self.fixed_goal is not None:
             goals = np.repeat(
                 self.fixed_goal.copy()[None],
                 batch_size,
@@ -192,9 +206,10 @@ class Point2DEnv(MultitaskEnv, Serializable):
         else:
             goals = np.zeros((batch_size, self.obs_range.low.size))
             for b in range(batch_size):
-                goals[b, :] = self._sample_position(self.obs_range.low,
-                                         self.obs_range.high,)
-                                         # realistic=self.sample_realistic_goals)
+                goals[b, :] = self._sample_position(
+                    self.obs_range.low, self.obs_range.high,
+                    # realistic=self.sample_realistic_goals
+                )
             # goals = np.random.uniform(
             #     self.obs_range.low,
             #     self.obs_range.high,
