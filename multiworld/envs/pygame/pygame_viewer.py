@@ -1,7 +1,4 @@
-from enum import Enum
-
 import pygame
-from collections import Iterable
 
 
 class PygameViewer(object):
