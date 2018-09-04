@@ -313,7 +313,36 @@ class Point2DEnv(MultitaskEnv, Serializable):
                 ))
         return statistics
 
-    """Static visualization/utility methods"""
+    def get_optimal_paths(self, states1, states2):
+        if self.walls:
+            raise NotImplementedError()
+
+        # if np.sum(states2) > 0.0:
+        #     raise NotImplementedError()
+
+        if (any(self.action_space.high != 1)
+            or any(self.action_space.low != -1)):
+            raise NotImplementedError()
+
+        num_steps_to_goal = np.ceil(
+            np.linalg.norm(states1 - states2, ord=float('inf'), axis=1)
+        ).astype(int)
+
+        optimal_paths = [
+            np.concatenate([
+                np.linspace(
+                    states1[i, 0], states2[i, 0], num_steps_to_goal[i]
+                )[:, None],
+                np.linspace(
+                    states1[i, 1], states2[i, 1], num_steps_to_goal[i]
+                )[:, None],
+            ], axis=1)
+            for i in range(states1.shape[0])
+        ]
+
+        return optimal_paths
+
+    # Static visualization/utility methods
 
     @staticmethod
     def true_model(state, action):
