@@ -106,10 +106,7 @@ class Point2DEnv(MultitaskEnv, Serializable):
         velocities = np.clip(velocities, a_min=-1, a_max=1)
         self._velocity = velocities
         new_position = self._position + velocities
-        for wall in self.walls:
-            new_position = wall.handle_collision(
-                self._position, new_position
-            )
+        new_position = self.handle_collision(self._position, new_position)
         self._position = new_position
         self._position = np.clip(
             self._position,
@@ -133,6 +130,21 @@ class Point2DEnv(MultitaskEnv, Serializable):
         }
         done = False
         return ob, reward, done, info
+
+    def handle_collisions(self, previous_positions, new_positions):
+        new_positions = np.array([
+            self.handle_collision(previous_position, new_position)
+            for previous_position, new_position in zip(
+                    previous_positions, new_positions)
+        ])
+        return new_positions
+
+    def handle_collision(self, previous_position, new_position):
+        for wall in self.walls:
+            new_position = wall.handle_collision(
+                previous_position, new_position
+            )
+        return new_position
 
     def _sample_goal(self):
         return np.random.uniform(
