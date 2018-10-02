@@ -31,12 +31,10 @@ class Point2DEnv(MultitaskEnv, Serializable):
             boundary_dist=5,
             ball_radius=0.0,
             walls=None,
-            # fixed_goal=(15.0, -15.0),
-            fixed_goal=(5.0, 5.0),
-            randomize_position_on_reset=False,
+            fixed_goal=None,
+            randomize_position_on_reset=True,
             images_are_rgb=False,  # else black and white
-            # reset_position=(-15.0, -15.0),
-            reset_position=(-5.0, -5.0),
+            reset_position=(0.0, 0.0),
             **kwargs
     ):
         if walls is None:
