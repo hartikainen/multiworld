@@ -28,13 +28,15 @@ class Point2DEnv(MultitaskEnv, Serializable):
             render_size=400,
             reward_type="dense",
             target_radius=0.5,
-            boundary_dist=30,
-            ball_radius=0.25,
+            boundary_dist=5,
+            ball_radius=0.0,
             walls=None,
-            fixed_goal=(15.0, -15.0),
+            # fixed_goal=(15.0, -15.0),
+            fixed_goal=(5.0, 5.0),
             randomize_position_on_reset=False,
             images_are_rgb=False,  # else black and white
-            reset_position=(-15.0, -15.0),
+            # reset_position=(-15.0, -15.0),
+            reset_position=(-5.0, -5.0),
             **kwargs
     ):
         if walls is None:
@@ -531,8 +533,11 @@ class Point2DWallEnv(Point2DEnv):
             self,
             # wall_shape="_|",
             wall_shape="u",
-            inner_wall_max_dist=12,
-            thickness=3.0,
+            # inner_wall_max_dist=12,
+            # thickness=3.0,
+            inner_wall_max_dist=2,
+            # thickness=0.25,
+            thickness=1.0,
             **kwargs
     ):
         self.quick_init(locals())
