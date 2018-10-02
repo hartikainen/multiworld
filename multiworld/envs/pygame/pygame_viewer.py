@@ -24,7 +24,7 @@ class PygameViewer(object):
         :param y_bounds:
         """
         self.width = screen_width
-        self.height = screen_width
+        self.height = screen_height
         self.x_scaler = LinearMapper(x_bounds, (0, screen_width - 1))
         self.y_scaler = LinearMapper(y_bounds, (0, screen_height - 1))
         self.terminated = False
