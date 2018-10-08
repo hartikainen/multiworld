@@ -615,6 +615,25 @@ class Point2DWallEnv(Point2DEnv):
                     thickness=thickness,
                 )
             ]
+        elif wall_shape == 'zigzag':
+            self.walls = [
+                # Top wall
+                HorizontalWall(
+                    self.ball_radius,
+                    (2/5) * self.boundary_dist,
+                    -self.boundary_dist * 0.4,
+                    self.boundary_dist - 1.0,
+                    thickness=1.0,
+                ),
+                # Bottom wall
+                HorizontalWall(
+                    self.ball_radius,
+                    -(2/5) * self.boundary_dist,
+                    -self.boundary_dist + 1.0,
+                    self.boundary_dist * 0.4,
+                    thickness=1.0,
+                ),
+            ]
         if wall_shape == "-":
             self.walls = [
                 HorizontalWall(
