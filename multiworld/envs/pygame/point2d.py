@@ -35,6 +35,7 @@ class Point2DEnv(MultitaskEnv, Serializable):
             randomize_position_on_reset=True,
             images_are_rgb=False,  # else black and white
             reset_position=(0.0, 0.0),
+            discretize=False,
             **kwargs
     ):
         if walls is None:
@@ -59,6 +60,7 @@ class Point2DEnv(MultitaskEnv, Serializable):
             else None)
         self.randomize_position_on_reset = randomize_position_on_reset
         self.images_are_rgb = images_are_rgb
+        self.discretize = discretize
 
         self._max_episode_steps = 50
         self.max_target_distance = self.boundary_dist - self.target_radius
@@ -103,6 +105,9 @@ class Point2DEnv(MultitaskEnv, Serializable):
         self.drawer = None
 
     def step(self, velocities):
+        if self.discretize:
+            velocities = np.round(velocities)
+
         velocities = np.clip(velocities, a_min=-1, a_max=1)
         self._velocity = velocities
         new_position = self._position + velocities
@@ -167,6 +172,9 @@ class Point2DEnv(MultitaskEnv, Serializable):
         else:
             positions = np.tile(self._reset_position, (N, 1))
 
+        if self.discretize:
+            positions = np.round(positions)
+
         return positions
 
     def get_reset_position(self):
@@ -186,6 +194,10 @@ class Point2DEnv(MultitaskEnv, Serializable):
                 high=self.max_target_distance)
 
         self._position = self.get_reset_position()
+
+        if self.discretize:
+            self._position = np.round(self._position) + 0
+            self._target_position = np.round(self._target_position) + 0
 
         return self._get_obs()
 
