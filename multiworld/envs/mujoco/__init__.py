@@ -76,24 +76,6 @@ def register_custom_envs():
         },
     )
     register(
-        id='SawyerPushAndReachXYEasyEnv-v0',
-        entry_point='multiworld.envs.mujoco.sawyer_xyz.sawyer_push_and_reach_env:SawyerPushAndReachXYEnv',
-        tags={
-            'git-commit-hash': 'fec148f',
-            'author': 'vitchyr'
-        },
-        kwargs=dict(
-            reward_type='puck_distance',
-            reset_free=False,
-            hand_low=(-0.28, 0.3, 0.05),
-            hand_high=(0.28, 0.9, 0.3),
-            puck_low=(-.4, .2),
-            puck_high=(.4, 1),
-            goal_low=(-0.05, 0.4, 0.02, -.1, .5),
-            goal_high=(0.05, 0.7, 0.02, .1, .7),
-        )
-    )
-    register(
         id='Image48SawyerPushAndReachXYEasyEnv-v0',
         entry_point=create_image_48_sawyer_reach_and_reach_xy_easy_env_v0,
         tags={
@@ -102,65 +84,48 @@ def register_custom_envs():
         },
     )
 
+    register(
+        id='SawyerPushXYEnv-WithResets-v0',
+        entry_point='multiworld.envs.mujoco.sawyer_xyz.sawyer_push_and_reach_env:SawyerPushAndReachXYEnv',
+        tags={
+            'git-commit-hash': '1e2652f',
+            'author': 'vitchyr',
+        },
+        kwargs=dict(
+            reward_type='puck_distance',
+            hand_low=(-0.28, 0.3, 0.05),
+            hand_high=(0.28, 0.9, 0.3),
+            puck_low=(-.4, .2),
+            puck_high=(.4, 1),
+            goal_low=(-0.25, 0.3, 0.02, -.2, .4),
+            goal_high=(0.25, 0.875, 0.02, .2, .8),
+            num_resets_before_puck_reset=int(1e6),
+            num_resets_before_hand_reset=int(1e6),
+        )
+    )
+    register(
+        id='SawyerPushAndReachXYEnv-WithResets-v0',
+        entry_point='multiworld.envs.mujoco.sawyer_xyz.sawyer_push_and_reach_env:SawyerPushAndReachXYEnv',
+        tags={
+            'git-commit-hash': '1e2652f',
+            'author': 'vitchyr',
+        },
+        kwargs=dict(
+            reward_type='state_distance',
+            hand_low=(-0.28, 0.3, 0.05),
+            hand_high=(0.28, 0.9, 0.3),
+            puck_low=(-.4, .2),
+            puck_high=(.4, 1),
+            goal_low=(-0.25, 0.3, 0.02, -.2, .4),
+            goal_high=(0.25, 0.875, 0.02, .2, .8),
+            num_resets_before_puck_reset=int(1e6),
+            num_resets_before_hand_reset=int(1e6),
+        )
+    )
+
     """
     Pushing tasks, XY, Reset Free
     """
-    register(
-        id='SawyerPushAndReacherXYEnv-ResetFree-v0',
-        entry_point='multiworld.envs.mujoco.sawyer_xyz.sawyer_push_and_reach_env:SawyerPushAndReachXYEnv',
-        tags={
-            'git-commit-hash': '3d4adbe',
-            'author': 'vitchyr'
-        },
-        kwargs=dict(
-            reward_type='puck_distance',
-            reset_free=True,
-            hand_low=(-0.28, 0.3, 0.05),
-            hand_high=(0.28, 0.9, 0.3),
-            puck_low=(-.4, .2),
-            puck_high=(.4, 1),
-            goal_low=(-0.25, 0.3, 0.02, -.2, .4),
-            goal_high=(0.25, 0.875, 0.02, .2, .8),
-        )
-    )
-    register(
-        id='SawyerPushXYEnv-ResetFree-v0',
-        entry_point='multiworld.envs.mujoco.sawyer_xyz.sawyer_push_and_reach_env:SawyerPushAndReachXYEnv',
-        tags={
-            'git-commit-hash': '33c6b71',
-            'author': 'vitchyr'
-        },
-        kwargs=dict(
-            reward_type='puck_distance',
-            reset_free=True,
-            hand_low=(-0.28, 0.3, 0.05),
-            hand_high=(0.28, 0.9, 0.3),
-            puck_low=(-.4, .2),
-            puck_high=(.4, 1),
-            goal_low=(-0.25, 0.3, 0.02, -.2, .4),
-            goal_high=(0.25, 0.875, 0.02, .2, .8),
-        )
-    )
-
-    register(
-        id='SawyerPushXYEnv-ResetFree-v1',
-        entry_point='multiworld.envs.mujoco.sawyer_xyz.sawyer_push_and_reach_env:SawyerPushAndReachXYEnv',
-        tags={
-            'git-commit-hash': '33c6b71',
-            'author': 'vitchyr'
-        },
-        kwargs=dict(
-            reward_type='puck_distance',
-            reset_free=True,
-            hand_low=(-0.28, 0.3, 0.05),
-            hand_high=(0.28, 0.9, 0.3),
-            puck_low=(-.4, .2),
-            puck_high=(.4, 1),
-            goal_low=(-0.25, 0.3, 0.02, -.2, .4),
-            goal_high=(0.25, 0.875, 0.02, .2, .8),
-        )
-    )
-
     register(
         id='SawyerPushXYEnv-CompleteResetFree-v1',
         entry_point='multiworld.envs.mujoco.sawyer_xyz.sawyer_push_and_reach_env:SawyerPushAndReachXYEnv',
@@ -180,163 +145,29 @@ def register_custom_envs():
             num_resets_before_hand_reset=int(1e6),
         )
     )
-
     register(
-        id='SawyerPushAndReachXYEnv-ResetFree-v0',
+        id='SawyerPushAndReachXYEnv-CompleteResetFree-v0',
         entry_point='multiworld.envs.mujoco.sawyer_xyz.sawyer_push_and_reach_env:SawyerPushAndReachXYEnv',
         tags={
-            'git-commit-hash': '33c6b71',
+            'git-commit-hash': '4ba667f',
             'author': 'vitchyr'
         },
         kwargs=dict(
             reward_type='state_distance',
-            reset_free=True,
             hand_low=(-0.28, 0.3, 0.05),
             hand_high=(0.28, 0.9, 0.3),
             puck_low=(-.4, .2),
             puck_high=(.4, 1),
             goal_low=(-0.25, 0.3, 0.02, -.2, .4),
             goal_high=(0.25, 0.875, 0.02, .2, .8),
-            num_resets_before_puck_reset=1,
-        )
-    )
-    register(
-        id='SawyerPushAndReachXYEnv-ResetFree-Every1B-v0',
-        entry_point='multiworld.envs.mujoco.sawyer_xyz.sawyer_push_and_reach_env:SawyerPushAndReachXYEnv',
-        tags={
-            'git-commit-hash': '33c6b71',
-            'author': 'vitchyr'
-        },
-        kwargs=dict(
-            reward_type='state_distance',
-            reset_free=True,
-            hand_low=(-0.28, 0.3, 0.05),
-            hand_high=(0.28, 0.9, 0.3),
-            puck_low=(-.4, .2),
-            puck_high=(.4, 1),
-            goal_low=(-0.25, 0.3, 0.02, -.2, .4),
-            goal_high=(0.25, 0.875, 0.02, .2, .8),
-            num_resets_before_puck_reset=int(1e9),
-        )
-    )
-    register(
-        id='SawyerPushAndReachXYEnv-ResetFree-Every2-v0',
-        entry_point='multiworld.envs.mujoco.sawyer_xyz.sawyer_push_and_reach_env:SawyerPushAndReachXYEnv',
-        tags={
-            'git-commit-hash': '33c6b71',
-            'author': 'vitchyr'
-        },
-        kwargs=dict(
-            reward_type='state_distance',
-            reset_free=True,
-            hand_low=(-0.28, 0.3, 0.05),
-            hand_high=(0.28, 0.9, 0.3),
-            puck_low=(-.4, .2),
-            puck_high=(.4, 1),
-            goal_low=(-0.25, 0.3, 0.02, -.2, .4),
-            goal_high=(0.25, 0.875, 0.02, .2, .8),
-            num_resets_before_puck_reset=2,
-        )
-    )
-    register(
-        id='SawyerPushAndReachXYEnv-ResetFree-Every3-v0',
-        entry_point='multiworld.envs.mujoco.sawyer_xyz.sawyer_push_and_reach_env:SawyerPushAndReachXYEnv',
-        tags={
-            'git-commit-hash': '33c6b71',
-            'author': 'vitchyr'
-        },
-        kwargs=dict(
-            reward_type='state_distance',
-            reset_free=True,
-            hand_low=(-0.28, 0.3, 0.05),
-            hand_high=(0.28, 0.9, 0.3),
-            puck_low=(-.4, .2),
-            puck_high=(.4, 1),
-            goal_low=(-0.25, 0.3, 0.02, -.2, .4),
-            goal_high=(0.25, 0.875, 0.02, .2, .8),
-            num_resets_before_puck_reset=3,
+            num_resets_before_puck_reset=int(1e6),
+            num_resets_before_hand_reset=int(1e6),
         )
     )
 
     """
     Push XYZ
     """
-    register(
-        id='SawyerPushXyzEasyEnv-v0',
-        entry_point='multiworld.envs.mujoco.sawyer_xyz'
-                    '.sawyer_push_and_reach_env:SawyerPushAndReachXYZEnv',
-        tags={
-            'git-commit-hash': 'f7d1e91',
-            'author': 'vitchyr'
-        },
-        kwargs=dict(
-            reward_type='puck_distance',
-            reset_free=False,
-            hand_low=(-0.28, 0.3, 0.05),
-            hand_high=(0.28, 0.9, 0.3),
-            puck_low=(-.4, .2),
-            puck_high=(.4, 1),
-            goal_low=(-0.05, 0.4, 0.02, -.1, .5),
-            goal_high=(0.05, 0.7, 0.02, .1, .7),
-        )
-    )
-    register(
-        id='SawyerPushAndReachXyzEasyEnv-v0',
-        entry_point='multiworld.envs.mujoco.sawyer_xyz'
-                    '.sawyer_push_and_reach_env:SawyerPushAndReachXYZEnv',
-        tags={
-            'git-commit-hash': 'f7d1e91',
-            'author': 'vitchyr'
-        },
-        kwargs=dict(
-            reward_type='state_distance',
-            reset_free=False,
-            hand_low=(-0.28, 0.3, 0.05),
-            hand_high=(0.28, 0.9, 0.3),
-            puck_low=(-.4, .2),
-            puck_high=(.4, 1),
-            goal_low=(-0.05, 0.4, 0.02, -.1, .5),
-            goal_high=(0.05, 0.7, 0.02, .1, .7),
-        )
-    )
-    register(
-        id='SawyerPushXyzFullArenaEnv-v0',
-        entry_point='multiworld.envs.mujoco.sawyer_xyz'
-                    '.sawyer_push_and_reach_env:SawyerPushAndReachXYZEnv',
-        tags={
-            'git-commit-hash': 'f7d1e91',
-            'author': 'vitchyr'
-        },
-        kwargs=dict(
-            reward_type='puck_distance',
-            reset_free=False,
-            hand_low=(-0.28, 0.3, 0.05),
-            hand_high=(0.28, 0.9, 0.3),
-            puck_low=(-.4, .2),
-            puck_high=(.4, 1),
-            goal_low=(-0.25, 0.3, 0.02, -.2, .4),
-            goal_high=(0.25, 0.875, 0.02, .2, .8),
-        )
-    )
-    register(
-        id='SawyerPushAndReachXyzFullArenaEnv-v0',
-        entry_point='multiworld.envs.mujoco.sawyer_xyz'
-                    '.sawyer_push_and_reach_env:SawyerPushAndReachXYZEnv',
-        tags={
-            'git-commit-hash': 'f7d1e91',
-            'author': 'vitchyr'
-        },
-        kwargs=dict(
-            reward_type='state_distance',
-            reset_free=False,
-            hand_low=(-0.28, 0.3, 0.05),
-            hand_high=(0.28, 0.9, 0.3),
-            puck_low=(-.4, .2),
-            puck_high=(.4, 1),
-            goal_low=(-0.25, 0.3, 0.02, -.2, .4),
-            goal_high=(0.25, 0.875, 0.02, .2, .8),
-        )
-    )
     register(
         id='SawyerDoorPullEnv-v0',
         entry_point='multiworld.envs.mujoco.sawyer_xyz'
@@ -420,6 +251,127 @@ def register_custom_envs():
         },
     )
 
+    register(
+        id='SawyerDoorHookResetFreeEnv-v1',
+        entry_point='multiworld.envs.mujoco.sawyer_xyz'
+                    '.sawyer_door_hook:SawyerDoorHookEnv',
+        tags={
+            'git-commit-hash': '333776f',
+            'author': 'murtaza',
+        },
+        kwargs=dict(
+            goal_low=(-0.1, 0.45, 0.15, 0),
+            goal_high=(0.0, 0.65, .225, 1.0472),
+            hand_low=(-0.1, 0.45, 0.15),
+            hand_high=(0., 0.65, .225),
+            max_angle=1.0472,
+            xml_path='sawyer_xyz/sawyer_door_pull_hook.xml',
+            reset_free=True,
+        )
+    )
+    register(
+        id='Image48SawyerDoorHookResetFreeEnv-v1',
+        entry_point=create_Image48SawyerDoorHookResetFreeEnv_v1,
+        tags={
+            'git-commit-hash': '333776f',
+            'author': 'murtaza',
+        },
+    )
+
+    register(
+        id='SawyerDoorHookResetFreeEnv-v2',
+        entry_point='multiworld.envs.mujoco.sawyer_xyz'
+                    '.sawyer_door_hook:SawyerDoorHookEnv',
+        tags={
+            'git-commit-hash': '2879edb',
+            'author': 'murtaza',
+        },
+        kwargs=dict(
+            goal_low=(-0.1, 0.45, 0.15, 0),
+            goal_high=(0.0, 0.65, .225, 1.0472),
+            hand_low=(-0.1, 0.45, 0.15),
+            hand_high=(0., 0.65, .225),
+            max_angle=1.0472,
+            xml_path='sawyer_xyz/sawyer_door_pull_hook.xml',
+            reset_free=True,
+        )
+    )
+
+    register(
+        id='SawyerDoorHookResetFreeEnv-v3',
+        entry_point='multiworld.envs.mujoco.sawyer_xyz'
+                    '.sawyer_door_hook:SawyerDoorHookEnv',
+        tags={
+            'git-commit-hash': 'ffdb56e',
+            'author': 'murtaza',
+        },
+        kwargs=dict(
+            goal_low=(-0.1, 0.45, 0.15, 0),
+            goal_high=(0.0, 0.65, .225, 1.0472),
+            hand_low=(-0.1, 0.45, 0.15),
+            hand_high=(0., 0.65, .225),
+            max_angle=1.0472,
+            xml_path='sawyer_xyz/sawyer_door_pull_hook.xml',
+            reset_free=True,
+        )
+    )
+
+    register( #do not use!!!
+        id='SawyerDoorHookResetFreeEnv-v4',
+        entry_point='multiworld.envs.mujoco.sawyer_xyz'
+                    '.sawyer_door_hook:SawyerDoorHookEnv',
+        tags={
+            'git-commit-hash': 'ffdb56e',
+            'author': 'murtaza',
+        },
+        kwargs=dict(
+            goal_low=(-0.2, 0.45, 0.1, 0),
+            goal_high=(0.2, 0.65, .25, 1.0472),
+            hand_low=(-0.2, 0.45, 0.15),
+            hand_high=(.2, 0.65, .25),
+            max_angle=1.0472,
+            xml_path='sawyer_xyz/sawyer_door_pull_hook.xml',
+            reset_free=True,
+        )
+    )
+    register(
+        id='SawyerDoorHookResetFreeEnv-v5',
+        entry_point='multiworld.envs.mujoco.sawyer_xyz'
+                    '.sawyer_door_hook:SawyerDoorHookEnv',
+        tags={
+            'git-commit-hash': 'ffdb56e',
+            'author': 'murtaza',
+        },
+        kwargs=dict(
+            goal_low=(-0.1, 0.45, 0.1, 0),
+            goal_high=(0.05, 0.65, .25, .83),
+            hand_low=(-0.1, 0.45, 0.1),
+            hand_high=(0.05, 0.65, .25),
+            max_angle=.83,
+            xml_path='sawyer_xyz/sawyer_door_pull_hook.xml',
+            reset_free=True,
+        )
+    )
+
+    register(
+        id='SawyerDoorHookResetFreeEnv-v6',
+        entry_point='multiworld.envs.mujoco.sawyer_xyz'
+                    '.sawyer_door_hook:SawyerDoorHookEnv',
+        tags={
+            'git-commit-hash': 'ffdb56e',
+            'author': 'murtaza',
+        },
+        kwargs=dict(
+            goal_low=(-0.1, 0.4, 0.1, 0),
+            goal_high=(0.05, 0.65, .25, .93),
+            hand_low=(-0.1, 0.4, 0.1),
+            hand_high=(0.05, 0.65, .25),
+            max_angle=.93,
+            xml_path='sawyer_xyz/sawyer_door_pull_hook.xml',
+            reset_free=True,
+        )
+    )
+
 
 def create_image_48_sawyer_reach_xy_env_v0():
     from multiworld.core.image_env import ImageEnv
@@ -496,6 +448,19 @@ def create_Image48SawyerDoorHookResetFreeEnv_v0():
     from multiworld.envs.mujoco.cameras import sawyer_door_env_camera_v3
 
     wrapped_env = gym.make('SawyerDoorHookResetFreeEnv-v0')
+    return ImageEnv(
+        wrapped_env,
+        48,
+        init_camera=sawyer_door_env_camera_v3,
+        transpose=True,
+        normalize=True,
+    )
+
+def create_Image48SawyerDoorHookResetFreeEnv_v1():
+    from multiworld.core.image_env import ImageEnv
+    from multiworld.envs.mujoco.cameras import sawyer_door_env_camera_v3
+
+    wrapped_env = gym.make('SawyerDoorHookResetFreeEnv-v1')
     return ImageEnv(
         wrapped_env,
         48,

@@ -33,7 +33,6 @@ class SawyerPushAndReachXYZEnv(MultitaskEnv, SawyerXYZEnv):
 
             num_resets_before_puck_reset=1,
             num_resets_before_hand_reset=1,
-            reset_hand_with_puck=False,
             **kwargs
     ):
         self.quick_init(locals())
@@ -97,6 +96,7 @@ class SawyerPushAndReachXYZEnv(MultitaskEnv, SawyerXYZEnv):
         self.num_resets_before_hand_reset = num_resets_before_hand_reset
         self.reset_counter = 0
         self.puck_space = Box(self.puck_low, self.puck_high, dtype=np.float32)
+        self.reset()
 
     @property
     def model_name(self):
