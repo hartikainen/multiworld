@@ -13,6 +13,11 @@ from multiworld.envs.env_util import (
 )
 from multiworld.envs.pygame.pygame_viewer import PygameViewer
 from multiworld.envs.pygame.walls import VerticalWall, HorizontalWall
+from .point_2d_network import (
+    grid_2d_graph_with_diagonal_edges,
+    remove_walls_from_graph,
+    get_shortest_paths,
+)
 
 
 class Point2DEnv(MultitaskEnv, Serializable):
@@ -67,15 +72,21 @@ class Point2DEnv(MultitaskEnv, Serializable):
             else None)
         self._target_position = None
 
+        # lower_bound_offset fixes a problem where gym.spaces.Box.sample()
+        # produces incorrect value
         action_bounds = np.array(action_bounds, dtype=dtype)
+        self.action_x_bounds = action_bounds[:, 0]
+        self.action_y_bounds = action_bounds[:, 1]
+        assert np.abs(self.action_x_bounds[0]) == self.action_x_bounds[1]
+        assert np.abs(self.action_y_bounds[0]) == self.action_y_bounds[1]
         self.action_space = spaces.Box(
             action_bounds[0, :],
             action_bounds[1, :],
             dtype=dtype)
 
         observation_bounds = np.array(observation_bounds, dtype=dtype)
-        self.x_bounds = observation_bounds[:, 0]
-        self.y_bounds = observation_bounds[:, 1]
+        self.observation_x_bounds = observation_bounds[:, 0]
+        self.observation_y_bounds = observation_bounds[:, 1]
         observation_box = spaces.Box(
             observation_bounds[0, :],
             observation_bounds[1, :],
@@ -93,11 +104,33 @@ class Point2DEnv(MultitaskEnv, Serializable):
         })
 
         self.drawer = None
+        self.initialize_grid_graph()
+
+    def get_approximate_shortest_paths(self, starts, ends):
+        optimal_distances = []
+        for start, end in zip(starts, ends):
+            start, end = tuple(start), tuple(end)
+            optimal_distances.append(
+                len(self.all_pairs_shortest_paths[start][end]))
+        optimal_distances = np.array(optimal_distances)
+        return optimal_distances
+
+    def initialize_grid_graph(self):
+        x_low, x_high = self.observation_x_bounds
+        dx = self.action_x_bounds[1]
+        y_low, y_high = self.observation_y_bounds
+        dy = self.action_y_bounds[1]
+
+        graph = grid_2d_graph_with_diagonal_edges(
+            np.arange(x_low, x_high+1, dx),
+            np.arange(y_low, y_high+1, dy))
+
+        graph = remove_walls_from_graph(graph, self.walls)
+
+        self.grid_graph = graph
+        self.all_pairs_shortest_paths = get_shortest_paths(graph)
 
     def step(self, action):
-        if self.discretize:
-            action = np.round(action).astype(int)
-
         action = np.clip(
             action,
             a_min=self.action_space.low,
@@ -326,8 +359,8 @@ class Point2DEnv(MultitaskEnv, Serializable):
             self.drawer = PygameViewer(
                 self.render_size,
                 self.render_size,
-                x_bounds=self.x_bounds,
-                y_bounds=self.y_bounds,
+                x_bounds=self.observation_x_bounds,
+                y_bounds=self.observation_y_bounds,
                 render_onscreen=self.render_onscreen,
             )
 
@@ -425,158 +458,50 @@ class Point2DWallEnv(Point2DEnv):
 
     def __init__(
             self,
-            # wall_shape="_|",
-            wall_shape="u",
-            # inner_wall_max_dist=12,
-            # thickness=3.0,
+            point_radius=0.0,
+            observation_bounds=((-5, -5), (5, 5)),
+            wall_shape="zigzag",
             inner_wall_max_dist=2,
-            # thickness=0.25,
             thickness=1.0,
             **kwargs
     ):
+
         self.quick_init(locals())
-        super().__init__(**kwargs)
+        self.point_radius = point_radius
         self.inner_wall_max_dist = inner_wall_max_dist
         self.wall_shape = wall_shape
-        if wall_shape == "_|":
-            self.walls = [
-                # Right wall
-                VerticalWall(
-                    self.point_radius,
-                    self.fixed_goal[0] - 10,
-                    self.fixed_goal[1] - 10,
-                    self.fixed_goal[1] + 5,
-                    thickness=thickness,
-                ),
-                # Bottom wall
-                HorizontalWall(
-                    self.point_radius,
-                    self.fixed_goal[1] + 5,
-                    self.fixed_goal[0] - 25,
-                    self.fixed_goal[0] - 10,
-                    thickness=thickness,
-                )
-            ]
-        elif wall_shape == "u":
-            self.walls = [
-                # Right wall
-                VerticalWall(
-                    self.point_radius,
-                    self.inner_wall_max_dist,
-                    -self.inner_wall_max_dist,
-                    self.inner_wall_max_dist,
-                    thickness=thickness,
-                ),
-                # Left wall
-                VerticalWall(
-                    self.point_radius,
-                    -self.inner_wall_max_dist,
-                    -self.inner_wall_max_dist,
-                    self.inner_wall_max_dist,
-                    thickness=thickness,
-                ),
-                # Bottom wall
-                HorizontalWall(
-                    self.point_radius,
-                    self.inner_wall_max_dist,
-                    -self.inner_wall_max_dist,
-                    self.inner_wall_max_dist,
-                    thickness=thickness,
-                )
-            ]
-        elif wall_shape == "n":
-            self.walls = [
-                # Right wall
-                VerticalWall(
-                    self.point_radius,
-                    self.inner_wall_max_dist,
-                    -self.inner_wall_max_dist,
-                    self.inner_wall_max_dist,
-                    thickness=thickness,
-                ),
-                # Left wall
-                VerticalWall(
-                    self.point_radius,
-                    -self.inner_wall_max_dist,
-                    -self.inner_wall_max_dist,
-                    self.inner_wall_max_dist,
-                    thickness=thickness,
-                ),
-                # Bottom wall
-                HorizontalWall(
-                    self.point_radius,
-                    -self.inner_wall_max_dist,
-                    -self.inner_wall_max_dist,
-                    self.inner_wall_max_dist,
-                    thickness=thickness,
-                )
-            ]
-        elif wall_shape == 'zigzag':
-            self.walls = [
+
+        observation_bounds = np.array(observation_bounds)
+        x_low, x_high = observation_bounds[:, 0]
+        y_low, y_high = observation_bounds[:, 1]
+
+        if wall_shape == 'zigzag':
+            walls = (
                 # Top wall
                 HorizontalWall(
                     self.point_radius,
-                    (2/5) * self.observation_box.high[1],
-                    self.observation_box.low[0] * 0.4,
-                    self.observation_box.high[0] - 1.0,
-                    thickness=1.0,
+                    (2/5) * y_high,
+                    x_low * 0.4,
+                    # 0.9 below s.t. the wall blocks the edges of the env
+                    x_high - thickness * 0.9,
+                    thickness=thickness,
                 ),
                 # Bottom wall
                 HorizontalWall(
                     self.point_radius,
-                    (2/5) * self.observation_box.low[1],
-                    self.observation_box.low[0] + 1.0,
-                    self.observation_box.high[0] * 0.4,
-                    thickness=1.0,
-                ),
-            ]
-        if wall_shape == "-":
-            self.walls = [
-                HorizontalWall(
-                    self.point_radius,
-                    self.inner_wall_max_dist,
-                    -self.inner_wall_max_dist,
-                    self.inner_wall_max_dist,
-                    thickness=thickness,
-                )
-            ]
-        if wall_shape == "--":
-            self.walls = [
-                HorizontalWall(
-                    self.point_radius,
-                    0,
-                    -self.inner_wall_max_dist,
-                    self.inner_wall_max_dist,
-                    thickness=thickness,
-                )
-            ]
-        elif wall_shape == "|-":
-            self.walls = [
-                HorizontalWall(
-                    self.point_radius,
-                    0,
-                    -self.inner_wall_max_dist,
-                    self.inner_wall_max_dist,
+                    (2/5) * y_low,
+                    # 0.9 below s.t. the wall blocks the edges of the env
+                    x_low + thickness * 0.9,
+                    x_high * 0.4,
                     thickness=thickness,
                 ),
-                # Left wall
-                VerticalWall(
-                    self.point_radius,
-                    -self.inner_wall_max_dist,
-                    -self.inner_wall_max_dist // 2,
-                    self.inner_wall_max_dist // 2,
-                    thickness=thickness,
-                ),
-                # Right wall
-                VerticalWall(
-                    self.point_radius,
-                    self.inner_wall_max_dist,
-                    -self.inner_wall_max_dist // 2,
-                    self.inner_wall_max_dist // 2,
-                    thickness=thickness,
-                ),
-            ]
+            )
 
+        super().__init__(
+            point_radius=point_radius,
+            observation_bounds=observation_bounds,
+            walls=walls,
+            **kwargs)
 
 
 if __name__ == "__main__":

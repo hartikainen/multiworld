@@ -12,6 +12,8 @@ if v_wall.collides_with(init_xy, new_xy):
     new_xy = v_wall.handle_collision(init_xy, new_xy)
 ```
 """
+import operator
+
 import numpy as np
 import abc
 
@@ -55,15 +57,42 @@ class Wall(object, metaclass=abc.ABCMeta):
         self.max_y = max_y
         self.min_y = min_y
 
-    def contains_point(self, points):
+    def contains_point(self, points, inclusive=False):
+        points = np.array(points)
+
+        op = (operator.le if inclusive else operator.lt)
+
         if points.ndim == 1:
             points = points[None]
+
         result = np.logical_and(
             np.logical_and(
-                self.min_x < points[:, 0], points[:, 0] < self.max_x),
+                op(self.min_x, points[:, 0]),
+                op(points[:, 0], self.max_x)),
             np.logical_and(
-                self.min_y < points[:, 1], points[:, 1] < self.max_y))
+                op(self.min_y, points[:, 1]),
+                op(points[:, 1], self.max_y)))
+
         return result
+
+    def contains_segment(self, segment):
+        start, end = segment
+        flat_segment = (*start, *end)
+
+        if (self.top_segment.intersects_with(flat_segment)
+            and end[1] <= start[1] >= self.max_y):
+            return True
+        if (self.bottom_segment.intersects_with(flat_segment)
+            and end[1] >= start[1] <= self.min_y):
+            return True
+        if (self.right_segment.intersects_with(flat_segment)
+            and end[0] <= start[0] >= self.max_x):
+            return True
+        if (self.left_segment.intersects_with(flat_segment)
+            and end[0] >= start[0] <= self.min_x):
+            return True
+
+        return False
 
     def handle_collision(self, start_point, end_point):
         trajectory_segment = (
