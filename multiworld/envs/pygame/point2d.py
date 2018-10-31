@@ -272,10 +272,11 @@ class Point2DEnv(MultitaskEnv, Serializable):
         while np.any(positions_inside_walls):
             # positions_inside_walls_idx = np.where(positions_inside_walls)
             num_positions_inside_walls = np.sum(positions_inside_walls)
-            positions[positions_inside_walls] = np.random.uniform(
-                size=(num_positions_inside_walls, 2),
-                low=-self.observation_box.low,
-                high=self.observation_box.high)
+            new_positions = np.array([
+                self.observation_box.sample()
+                for _ in range(num_positions_inside_walls)
+            ])
+            positions[positions_inside_walls] = new_positions
             positions_inside_walls = self._positions_inside_wall(
                 positions)
 
