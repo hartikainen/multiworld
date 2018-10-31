@@ -77,29 +77,48 @@ class Wall(object, metaclass=abc.ABCMeta):
 
     def contains_segment(self, segment):
         start, end = segment
-        flat_segment = (*start, *end)
 
-        if (self.top_segment.intersects_with(flat_segment)
-            and end[1] <= start[1] >= self.max_y):
+        top = self.top_segment
+        bottom = self.bottom_segment
+        left = self.left_segment
+        right = self.right_segment
+
+        assert top.y0 == top.y1
+        assert bottom.y0 == bottom.y1
+        assert left.x0 == left.x1
+        assert right.x0 == right.x1
+
+        if (top.intersects_with(segment)
+            or (top.y0 == start[1] and right.x0 == end[0]
+                and start[0] < end[0] and end[1] < start[1])
+            or (top.y0 == end[1] and right.x0 == start[0]
+                and end[0] < start[0] and start[1] < end[1])):
             return True
-        if (self.bottom_segment.intersects_with(flat_segment)
-            and end[1] >= start[1] <= self.min_y):
+        if (right.intersects_with(segment)
+            or (right.x0 == end[0] and bottom.y0 == start[1]
+                and start[0] < end[0] and start[1] < end[1])
+            or (right.x0 == start[0] and bottom.y0 == end[1]
+                and end[0] < start[0] and end[1] < start[1])):
             return True
-        if (self.right_segment.intersects_with(flat_segment)
-            and end[0] <= start[0] >= self.max_x):
+        if (bottom.intersects_with(segment)
+            or (bottom.y0 == start[1] and left.x0 == end[0]
+                and end[0] < start[0] and start[1] < end[1])
+            or (bottom.y0 == end[1] and left.x0 == start[0]
+                and start[0] < end[0] and end[1] < start[1])):
             return True
-        if (self.left_segment.intersects_with(flat_segment)
-            and end[0] >= start[0] <= self.min_x):
+        if (left.intersects_with(segment)
+            or (left.x0 == start[0] and top.y0 == end[1]
+                and start[0] < end[0] and start[1] < end[1])
+            or (left.x0 == end[0] and top.y0 == start[1]
+                and end[0] < start[0] and end[1] < start[1])):
             return True
 
         return False
 
     def handle_collision(self, start_point, end_point):
         trajectory_segment = (
-            start_point[0],
-            start_point[1],
-            end_point[0],
-            end_point[1],
+            (start_point[0], start_point[1]),
+            (end_point[0], end_point[1]),
         )
         if (self.top_segment.intersects_with(trajectory_segment) and
                 end_point[1] <= start_point[1] >= self.max_y):
@@ -116,6 +135,38 @@ class Wall(object, metaclass=abc.ABCMeta):
         return end_point
 
 
+def intersects_with(s1, s2):
+    A, B = s1
+    C, D = s2
+
+    cases = [
+        [
+            [A[0]-C[0], B[0]-C[0]],
+            [A[1]-C[1], B[1]-C[1]],
+        ],
+
+        [
+            [A[0]-D[0], B[0]-D[0]],
+            [A[1]-D[1], B[1]-D[1]],
+        ],
+        [
+            [C[0]-A[0], D[0]-A[0]],
+            [C[1]-A[1], D[1]-A[1]],
+        ],
+        [
+            [C[0]-B[0], D[0]-B[0]],
+            [C[1]-B[1], D[1]-B[1]],
+        ]
+    ]
+
+    determinants = [np.linalg.det(case) for case in cases]
+    signs = np.sign(determinants)
+
+    return (
+        signs[0] * signs[1] != 0 and signs[0] == -signs[1]
+        and signs[2] * signs[3] != 0 and signs[2] == -signs[3])
+
+
 class Segment(object):
     def __init__(self, x0, y0, x1, y1):
         self.x0 = x0
@@ -124,15 +175,8 @@ class Segment(object):
         self.y1 = y1
 
     def intersects_with(self, s2):
-        left = max(min(self.x0, self.x1), min(s2[0], s2[2]))
-        right = min(max(self.x0, self.x1), max(s2[0], s2[2]))
-        bottom = max(min(self.y0, self.y1), min(s2[1], s2[3]))
-        top = min(max(self.y0, self.y1), max(s2[1], s2[3]))
-
-        if bottom > top or left > right:
-            return False
-
-        return True
+        s1 = ((self.x0, self.y0), (self.x1, self.y1))
+        return intersects_with(s1, s2)
 
 
 class VerticalWall(Wall):
