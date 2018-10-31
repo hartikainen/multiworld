@@ -88,29 +88,27 @@ class Wall(object, metaclass=abc.ABCMeta):
         assert left.x0 == left.x1
         assert right.x0 == right.x1
 
+        is_diagonal = end[0] != start[0] and end[1] != start[1]
+
         if (top.intersects_with(segment)
-            or (top.y0 == start[1] and right.x0 == end[0]
-                and start[0] < end[0] and end[1] < start[1])
-            or (top.y0 == end[1] and right.x0 == start[0]
-                and end[0] < start[0] and start[1] < end[1])):
+            or (top.y0 == max(end[1], start[1])
+                and right.x0 == max(end[0], start[0])
+                and is_diagonal)):
             return True
         if (right.intersects_with(segment)
-            or (right.x0 == end[0] and bottom.y0 == start[1]
-                and start[0] < end[0] and start[1] < end[1])
-            or (right.x0 == start[0] and bottom.y0 == end[1]
-                and end[0] < start[0] and end[1] < start[1])):
+            or (right.x0 == max(end[0], start[0])
+                and bottom.y0 == min(end[1], start[1])
+                and is_diagonal)):
             return True
         if (bottom.intersects_with(segment)
-            or (bottom.y0 == start[1] and left.x0 == end[0]
-                and end[0] < start[0] and start[1] < end[1])
-            or (bottom.y0 == end[1] and left.x0 == start[0]
-                and start[0] < end[0] and end[1] < start[1])):
+            or (bottom.y0 == min(end[1], start[1])
+                and left.x0 == min(end[0], start[0])
+                and is_diagonal)):
             return True
         if (left.intersects_with(segment)
-            or (left.x0 == start[0] and top.y0 == end[1]
-                and start[0] < end[0] and start[1] < end[1])
-            or (left.x0 == end[0] and top.y0 == start[1]
-                and end[0] < start[0] and end[1] < start[1])):
+            or (left.x0 == min(end[0], start[0])
+                and top.y0 == max(end[1], start[1])
+                and is_diagonal)):
             return True
 
         return False
