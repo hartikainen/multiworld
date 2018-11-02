@@ -25,24 +25,28 @@ class Wall(object, metaclass=abc.ABCMeta):
             max_y,
             max_x,
             max_y,
+            side='top'
         )
         self.bottom_segment = Segment(
             min_x,
             min_y,
             max_x,
             min_y,
+            side='bottom'
         )
         self.left_segment = Segment(
             min_x,
             min_y,
             min_x,
             max_y,
+            side='left'
         )
         self.right_segment = Segment(
             max_x,
             min_y,
             max_x,
             max_y,
+            side='right'
         )
         self.segments = [
             self.top_segment,
@@ -78,103 +82,92 @@ class Wall(object, metaclass=abc.ABCMeta):
     def contains_segment(self, segment):
         start, end = segment
 
-        top = self.top_segment
-        bottom = self.bottom_segment
-        left = self.left_segment
-        right = self.right_segment
+        sides = (
+            self.top_segment,
+            self.right_segment,
+            self.bottom_segment,
+            self.left_segment,
+        )
 
-        assert top.y0 == top.y1
-        assert bottom.y0 == bottom.y1
-        assert left.x0 == left.x1
-        assert right.x0 == right.x1
-
-        is_diagonal = end[0] != start[0] and end[1] != start[1]
-
-        if (top.intersects_with(segment)
-            or (top.y0 == max(end[1], start[1])
-                and right.x0 == max(end[0], start[0])
-                and is_diagonal)):
-            return True
-        if (right.intersects_with(segment)
-            or (right.x0 == max(end[0], start[0])
-                and bottom.y0 == min(end[1], start[1])
-                and is_diagonal)):
-            return True
-        if (bottom.intersects_with(segment)
-            or (bottom.y0 == min(end[1], start[1])
-                and left.x0 == min(end[0], start[0])
-                and is_diagonal)):
-            return True
-        if (left.intersects_with(segment)
-            or (left.x0 == min(end[0], start[0])
-                and top.y0 == max(end[1], start[1])
-                and is_diagonal)):
-            return True
-
-        return False
+        return any(side.intersects_with(segment) for side in sides)
 
     def handle_collision(self, start_point, end_point):
-        trajectory_segment = (
-            (start_point[0], start_point[1]),
-            (end_point[0], end_point[1]),
-        )
-        if (self.top_segment.intersects_with(trajectory_segment) and
-                end_point[1] <= start_point[1] >= self.max_y):
+        trajectory_segment = (start_point, end_point)
+
+        if self.top_segment.intersects_with(trajectory_segment):
             end_point[1] = self.max_y
-        if (self.bottom_segment.intersects_with(trajectory_segment) and
-                end_point[1] >= start_point[1] <= self.min_y):
+        if self.bottom_segment.intersects_with(trajectory_segment):
             end_point[1] = self.min_y
-        if (self.right_segment.intersects_with(trajectory_segment) and
-                end_point[0] <= start_point[0] >= self.max_x):
+        if self.right_segment.intersects_with(trajectory_segment):
             end_point[0] = self.max_x
-        if (self.left_segment.intersects_with(trajectory_segment) and
-                end_point[0] >= start_point[0] <= self.min_x):
+        if self.left_segment.intersects_with(trajectory_segment):
             end_point[0] = self.min_x
+
+        assert not self.contains_point(end_point)
+
         return end_point
 
 
-def intersects_with(s1, s2):
-    A, B = s1
-    C, D = s2
-
-    cases = [
-        [
-            [A[0]-C[0], B[0]-C[0]],
-            [A[1]-C[1], B[1]-C[1]],
-        ],
-
-        [
-            [A[0]-D[0], B[0]-D[0]],
-            [A[1]-D[1], B[1]-D[1]],
-        ],
-        [
-            [C[0]-A[0], D[0]-A[0]],
-            [C[1]-A[1], D[1]-A[1]],
-        ],
-        [
-            [C[0]-B[0], D[0]-B[0]],
-            [C[1]-B[1], D[1]-B[1]],
-        ]
-    ]
-
-    determinants = [np.linalg.det(case) for case in cases]
-    signs = np.sign(determinants)
-
-    return (
-        signs[0] * signs[1] != 0 and signs[0] == -signs[1]
-        and signs[2] * signs[3] != 0 and signs[2] == -signs[3])
-
-
 class Segment(object):
-    def __init__(self, x0, y0, x1, y1):
+    def __init__(self, x0, y0, x1, y1, side):
         self.x0 = x0
         self.y0 = y0
         self.x1 = x1
         self.y1 = y1
+        self.side = side
 
-    def intersects_with(self, s2):
+    def intersects_with(self,
+                        s2,
+                        include_end_points=False,
+                        exclude_overlapping=False,
+                        stop=False):
         s1 = ((self.x0, self.y0), (self.x1, self.y1))
-        return intersects_with(s1, s2)
+
+        A, B = s1
+        C, D = s2
+
+        cases = [
+            [
+                [A[0]-C[0], B[0]-C[0]],
+                [A[1]-C[1], B[1]-C[1]],
+            ],
+
+            [
+                [A[0]-D[0], B[0]-D[0]],
+                [A[1]-D[1], B[1]-D[1]],
+            ],
+            [
+                [C[0]-A[0], D[0]-A[0]],
+                [C[1]-A[1], D[1]-A[1]],
+            ],
+            [
+                [C[0]-B[0], D[0]-B[0]],
+                [C[1]-B[1], D[1]-B[1]],
+            ]
+        ]
+
+        determinants = np.array([np.linalg.det(case) for case in cases])
+        signs = np.sign(determinants)
+
+        if np.all(determinants[2:] == 0):
+            return False
+
+        if ((signs[0] == signs[1] or signs[1] == 0)
+            or (signs[2] == signs[3] or np.any(signs[2:] == 0))):
+            return False
+
+        expected_sign = {
+            'top': 1,
+            'right': -1,
+            'bottom': -1,
+            'left': 1,
+        }[self.side]
+
+        begins_from_side = determinants[0] == 0
+        if (begins_from_side and (signs[1] in (expected_sign, 0))):
+            return False
+
+        return True
 
 
 class VerticalWall(Wall):
