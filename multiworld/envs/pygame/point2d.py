@@ -137,12 +137,13 @@ class Point2DEnv(MultitaskEnv, Serializable):
             a_max=self.action_space.high)
         self._previous_action = action
 
-        new_position = self.handle_collision(
-            self._current_position, self._current_position + action)
-        self._current_position = np.clip(
+        new_position = self._current_position + action
+        new_position = np.clip(
             new_position,
             a_min=self.observation_box.low,
             a_max=self.observation_box.high)
+        self._current_position = self.handle_collision(
+            self._current_position, new_position)
 
         distance_to_target = np.linalg.norm(
             self._current_position - self._target_position, ord=2)
