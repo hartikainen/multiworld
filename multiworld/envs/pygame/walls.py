@@ -89,10 +89,36 @@ class Wall(object, metaclass=abc.ABCMeta):
             self.left_segment,
         )
 
-        return any(side.intersects_with(segment) for side in sides)
+        if any(side.intersects_with(segment) for side in sides):
+            return True
+
+        for side in sides:
+            if side.intersects_with(segment):
+                return True
+            if ((np.all(start == (side.x0, side.y0))
+                 or np.all(start == (side.x1, side.y1)))
+                and self.contains_point(end)):
+                return True
+
+        return False
 
     def handle_collision(self, start_point, end_point):
         trajectory_segment = (start_point, end_point)
+        old_end_point = end_point
+
+        sides = (
+            self.top_segment,
+            self.right_segment,
+            self.bottom_segment,
+            self.left_segment,
+        )
+
+        for side in sides:
+            if ((np.all(start_point == (side.x0, side.y0))
+                 or np.all(start_point == (side.x1, side.y1)))
+                and self.contains_point(end_point)):
+                end_point = start_point
+                return end_point
 
         if self.top_segment.intersects_with(trajectory_segment):
             end_point[1] = self.max_y
@@ -103,7 +129,8 @@ class Wall(object, metaclass=abc.ABCMeta):
         if self.left_segment.intersects_with(trajectory_segment):
             end_point[0] = self.min_x
 
-        assert not self.contains_point(end_point)
+        assert not self.contains_point(end_point), (
+            start_point, old_end_point)
 
         return end_point
 
