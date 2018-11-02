@@ -22,28 +22,31 @@ from .point_2d_network import (
 
 class OptimalPoint2DEnvPolicy(object):
     def __init__(self,
+                 goal,
                  graph,
                  all_pairs_shortest_paths):
-        self.goal = (5.0, 5.0)
+        self.goal = tuple(goal) if goal is not None else (0.0, 0.0)
         self.graph = graph
         self.all_pairs_shortest_paths = all_pairs_shortest_paths
 
+    def set_goal(self, goal):
+        self.goal = tuple(goal)
+
     def get_action(self, observation):
         observation = np.array(observation)
-        goal = np.array(self.goal)
+        goal = self.goal
         if np.all(np.abs(goal - observation) < 1.0):
             action = goal - observation
             return ((action, None, None,), None)
 
-        round_observation = np.round(observation)
+        round_observation = tuple(np.round(observation))
+        round_goal = tuple(np.round(goal))
         shortest_path = self.all_pairs_shortest_paths[
-            tuple(round_observation)][self.goal]
+            round_observation][round_goal]
 
         next_step = shortest_path[1]
 
         action = next_step - observation
-        # too_far_idx = np.where(np.abs(action) > 1.0)
-        # action[too_far_idx] = action[too_far_idx] % 1.0
 
         return ((action, None, None,), None)
 
@@ -138,6 +141,7 @@ class Point2DEnv(MultitaskEnv, Serializable):
         self.initialize_grid_graph()
 
         self.optimal_policy = OptimalPoint2DEnvPolicy(
+            goal=self.fixed_goal,
             graph=self.grid_graph,
             all_pairs_shortest_paths=self.all_pairs_shortest_paths)
 
