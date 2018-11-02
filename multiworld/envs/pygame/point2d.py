@@ -161,6 +161,8 @@ class Point2DEnv(MultitaskEnv, Serializable):
                 from pprint import pprint; import ipdb; ipdb.set_trace(context=30)
                 pass
 
+        assert not self._position_inside_wall(observation['observation'])
+
         info = {
             'radius': self.target_radius,
             'target_position': self._target_position,
