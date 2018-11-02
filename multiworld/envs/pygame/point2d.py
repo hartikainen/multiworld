@@ -20,6 +20,37 @@ from .point_2d_network import (
 )
 
 
+class OptimalPoint2DEnvPolicy(object):
+    def __init__(self,
+                 graph,
+                 all_pairs_shortest_paths):
+        self.goal = (5.0, 5.0)
+        self.graph = graph
+        self.all_pairs_shortest_paths = all_pairs_shortest_paths
+
+    def get_action(self, observation):
+        observation = np.array(observation)
+        goal = np.array(self.goal)
+        if np.all(np.abs(goal - observation) < 1.0):
+            action = goal - observation
+            return ((action, None, None,), None)
+
+        round_observation = np.round(observation)
+        shortest_path = self.all_pairs_shortest_paths[
+            tuple(round_observation)][self.goal]
+
+        next_step = shortest_path[1]
+
+        action = next_step - observation
+        # too_far_idx = np.where(np.abs(action) > 1.0)
+        # action[too_far_idx] = action[too_far_idx] % 1.0
+
+        return ((action, None, None,), None)
+
+    def reset(self):
+        pass
+
+
 class Point2DEnv(MultitaskEnv, Serializable):
     """
     A little 2D point whose life goal is to reach a target.
@@ -105,6 +136,10 @@ class Point2DEnv(MultitaskEnv, Serializable):
 
         self.drawer = None
         self.initialize_grid_graph()
+
+        self.optimal_policy = OptimalPoint2DEnvPolicy(
+            graph=self.grid_graph,
+            all_pairs_shortest_paths=self.all_pairs_shortest_paths)
 
     def get_approximate_shortest_paths(self, starts, ends):
         optimal_distances = []
