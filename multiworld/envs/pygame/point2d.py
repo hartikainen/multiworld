@@ -256,6 +256,9 @@ class Point2DEnv(MultitaskEnv, Serializable):
         return self._get_obs()
 
     def _positions_inside_wall(self, positions):
+        if not self.walls:
+            return np.zeros(positions.shape[0], dtype=np.bool)
+
         inside_walls = [
             wall.contains_point(positions)
             for wall in self.walls
