@@ -74,3 +74,16 @@ def remove_walls_from_graph(graph, walls):
 
 def get_shortest_paths(graph):
     return nx.shortest_path(graph)
+
+
+def get_shortest_distances(all_pairs_shortest_paths):
+    observation_pairs, distances = [], []
+    for start, all_shortest_paths in all_pairs_shortest_paths.items():
+        for end, path in all_shortest_paths.items():
+            observation_pairs.append([start, end])
+            distances.append(len(path) - 1)
+
+    observation_pairs = np.array(observation_pairs)
+    distances = np.array(distances)
+
+    return observation_pairs, distances

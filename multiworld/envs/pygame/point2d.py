@@ -17,6 +17,7 @@ from .point_2d_network import (
     grid_2d_graph_with_diagonal_edges,
     remove_walls_from_graph,
     get_shortest_paths,
+    get_shortest_distances,
 )
 
 
@@ -32,12 +33,16 @@ class OptimalPoint2DEnvPolicy(object):
     def set_goal(self, goal):
         self.goal = tuple(goal)
 
-    def get_action(self, observation):
-        observation = np.array(observation)
+    def actions_np(self, observations, noisy=True):
+        assert len(observations) == 1
+        observation = observations[0]
+        assert observation.shape == (1, 2)
+        observation = np.array(observation[0])
         goal = self.goal
+
         if np.all(np.abs(goal - observation) < 1.0):
             action = goal - observation
-            return ((action, None, None,), None)
+            return action[None]
 
         round_observation = tuple(np.round(observation))
         round_goal = tuple(np.round(goal))
@@ -48,7 +53,10 @@ class OptimalPoint2DEnvPolicy(object):
 
         action = next_step - observation
 
-        return ((action, None, None,), None)
+        if noisy:
+            action += np.random.uniform(-1, 1, 2)
+
+        return action[None]
 
     def reset(self):
         pass
@@ -168,6 +176,8 @@ class Point2DEnv(MultitaskEnv, Serializable):
 
         self.grid_graph = graph
         self.all_pairs_shortest_paths = get_shortest_paths(graph)
+        self.all_pairs_observations, self.all_pairs_shortest_distances = (
+            get_shortest_distances(self.all_pairs_shortest_paths))
 
     def step(self, action):
         action = np.clip(
@@ -468,7 +478,8 @@ class Point2DEnv(MultitaskEnv, Serializable):
 
     def get_optimal_paths(self, states1, states2):
         if self.walls:
-            raise NotImplementedError()
+            return self.get_approximate_shortest_paths(
+                np.round(states1), np.round(states2))
 
         # if np.sum(states2) > 0.0:
         #     raise NotImplementedError()
@@ -527,6 +538,7 @@ class Point2DWallEnv(Point2DEnv):
                 HorizontalWall(
                     self.point_radius,
                     (2/5) * y_high,
+                    # x_low * 0.6,
                     x_low * 0.4,
                     # 0.9 below s.t. the wall blocks the edges of the env
                     x_high - thickness * 0.9,
@@ -539,6 +551,7 @@ class Point2DWallEnv(Point2DEnv):
                     # 0.9 below s.t. the wall blocks the edges of the env
                     x_low + thickness * 0.9,
                     x_high * 0.4,
+                    # x_high * 0.6,
                     thickness=thickness,
                 ),
             )
