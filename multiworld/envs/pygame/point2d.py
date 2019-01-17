@@ -33,11 +33,8 @@ class OptimalPoint2DEnvPolicy(object):
     def set_goal(self, goal):
         self.goal = tuple(goal)
 
-    def actions_np(self, observations, noisy=True):
-        assert len(observations) == 1
-        observation = observations[0]
-        assert observation.shape == (1, 2)
-        observation = np.array(observation[0])
+    def action_np(self, observation, noisy=True):
+        assert observation.shape == (2,)
         goal = self.goal
 
         if np.all(np.abs(goal - observation) < 1.0):
@@ -56,7 +53,33 @@ class OptimalPoint2DEnvPolicy(object):
         if noisy:
             action += np.random.uniform(-1, 1, 2)
 
-        return action[None]
+        return action
+
+    def actions_np(self, observations, noisy=True):
+        actions = np.array([
+            self.action_np(observation, noisy=noisy)
+            for observation in observations
+        ])
+
+        return actions
+
+    def true_distance(self, observation, goal):
+
+        round_observation = tuple(np.round(observation))
+        round_goal = tuple(np.round(goal))
+
+        shortest_path = self.all_pairs_shortest_paths[
+            round_observation][round_goal]
+
+        return [len(shortest_path) - 1.0]
+
+    def true_distances(self, observations, goals):
+        true_distances = np.array([
+            self.true_distance(observation, goal)
+            for observation, goal in zip(observations, goals)
+        ])
+
+        return true_distances
 
     def reset(self):
         pass
