@@ -67,6 +67,8 @@ class Point2DEnv(MultitaskEnv, Serializable):
     A little 2D point whose life goal is to reach a target.
     """
 
+    GOAL_INDEX = slice(0, 2)
+
     def __init__(
             self,
             render_dt_msec=0,
@@ -152,6 +154,23 @@ class Point2DEnv(MultitaskEnv, Serializable):
             goal=self.fixed_goal,
             graph=self.grid_graph,
             all_pairs_shortest_paths=self.all_pairs_shortest_paths)
+
+    def sample_metric_goal(self):
+        if False and hasattr(self, '_temporary_goal'):
+            goals = self._temporary_goal[None, ...]
+        else:
+            goals = self._sample_realistic_observations(1)
+
+        goals_inside_walls = self._positions_inside_wall(goals)
+        assert np.all(~goals_inside_walls), (goals, self.walls)
+
+        goals = {
+            'observation': goals,
+        }
+
+        goal = {key: value[0, ...] for key, value in goals.items()}
+
+        return goal
 
     def get_approximate_shortest_paths(self, starts, ends):
         optimal_distances = []
