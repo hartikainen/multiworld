@@ -98,7 +98,7 @@ class Point2DEnv(MultitaskEnv, Serializable):
             render_onscreen=True,
             render_size=400,
             reward_type='dense',
-            target_radius=0.5,
+            target_radius=1.0,
             point_radius=0.0,
             walls=(),
             observation_bounds=((-5, -5), (5, 5)),
@@ -268,7 +268,7 @@ class Point2DEnv(MultitaskEnv, Serializable):
             'speed': np.linalg.norm(action),
             'is_success': is_success,
         }
-        done = False
+        done = is_success
         return observation, reward, done, info
 
     def handle_collisions(self, previous_positions, new_positions):
