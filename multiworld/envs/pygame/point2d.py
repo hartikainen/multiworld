@@ -221,6 +221,9 @@ class Point2DEnv(MultitaskEnv, Serializable):
         self.all_pairs_observations, self.all_pairs_shortest_distances = (
             get_shortest_distances(self.all_pairs_shortest_paths))
 
+    def numeric_observations(self, observations):
+        return observations['observation']
+
     def step(self, action):
         action = np.clip(
             action,
@@ -246,13 +249,16 @@ class Point2DEnv(MultitaskEnv, Serializable):
 
         if self.discretize:
             try:
-                assert issubclass(observation['observation'].dtype.type, np.integer)
+                assert issubclass(
+                    self.numeric_observations(observation).dtype.type,
+                    np.integer)
                 assert issubclass(action.dtype.type, np.integer)
             except Exception as e:
                 from pprint import pprint; import ipdb; ipdb.set_trace(context=30)
                 pass
 
-        assert not self._position_inside_wall(observation['observation'])
+        assert not self._position_inside_wall(
+            self.numeric_observations(observation))
 
         info = {
             'radius': self.target_radius,
