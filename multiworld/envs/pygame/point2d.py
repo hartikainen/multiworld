@@ -106,7 +106,8 @@ class Point2DEnv(MultitaskEnv, Serializable):
             fixed_goal=None,
             reset_positions=None,
             images_are_rgb=False,  # else black and white
-            discretize=False):
+            discretize=False,
+            terminate_on_success=False):
         self.quick_init(locals())
 
         self.render_dt_msec = render_dt_msec
@@ -115,15 +116,12 @@ class Point2DEnv(MultitaskEnv, Serializable):
         self.reward_type = reward_type
         self.target_radius = target_radius
         self.point_radius = point_radius
+        self.terminate_on_success = terminate_on_success
 
         self.walls = walls
 
         dtype = 'int64' if discretize else 'float32'
-
-        self.fixed_goal = (
-            np.array(fixed_goal, dtype=dtype)
-            if fixed_goal is not None
-            else None)
+        self.set_goal(fixed_goal, dtype=dtype)
 
         self.images_are_rgb = images_are_rgb
         self.discretize = discretize
@@ -177,23 +175,6 @@ class Point2DEnv(MultitaskEnv, Serializable):
             goal=self.fixed_goal,
             graph=self.grid_graph,
             all_pairs_shortest_paths=self.all_pairs_shortest_paths)
-
-    def sample_metric_goal(self):
-        if False and hasattr(self, '_temporary_goal'):
-            goals = self._temporary_goal[None, ...]
-        else:
-            goals = self._sample_realistic_observations(1)
-
-        goals_inside_walls = self._positions_inside_wall(goals)
-        assert np.all(~goals_inside_walls), (goals, self.walls)
-
-        goals = {
-            'observation': goals,
-        }
-
-        goal = {key: value[0, ...] for key, value in goals.items()}
-
-        return goal
 
     def get_approximate_shortest_paths(self, starts, ends):
         optimal_distances = []
@@ -268,7 +249,7 @@ class Point2DEnv(MultitaskEnv, Serializable):
             'speed': np.linalg.norm(action),
             'is_success': is_success,
         }
-        done = is_success
+        done = is_success and self.terminate_on_success
         return observation, reward, done, info
 
     def handle_collisions(self, previous_positions, new_positions):
@@ -385,6 +366,14 @@ class Point2DEnv(MultitaskEnv, Serializable):
 
         return positions
 
+    def sample_metric_goal(self):
+        goals = self._sample_realistic_observations(1)
+
+        goals_inside_walls = self._positions_inside_wall(goals)
+        assert np.all(~goals_inside_walls), (goals, self.walls)
+
+        return goals[0]
+
     def sample_goals(self, N=1):
         if self.fixed_goal is None:
             goals = self._sample_realistic_observations(N)
@@ -407,6 +396,15 @@ class Point2DEnv(MultitaskEnv, Serializable):
     def set_position(self, pos):
         self._current_position[0] = pos[0]
         self._current_position[1] = pos[1]
+
+    def set_goal(self, goal, dtype=np.float32):
+        self.fixed_goal = (
+            np.array(goal, dtype=dtype)
+            if goal is not None
+            else None)
+
+        if hasattr(self, 'optimal_policy'):
+            self.optimal_policy.set_goal(self.fixed_goal)
 
     """Functions for ImageEnv wrapper"""
 
