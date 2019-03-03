@@ -122,6 +122,7 @@ class Point2DEnv(MultitaskEnv, Serializable):
 
         dtype = 'int64' if discretize else 'float32'
         self.set_goal(fixed_goal, dtype=dtype)
+        self.ultimate_goal = np.array(fixed_goal, dtype=dtype)
 
         self.images_are_rgb = images_are_rgb
         self.discretize = discretize
