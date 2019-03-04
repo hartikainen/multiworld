@@ -181,6 +181,10 @@ class Point2DEnv(MultitaskEnv, Serializable):
             graph=self.grid_graph,
             all_pairs_shortest_paths=self.all_pairs_shortest_paths)
 
+    @property
+    def _current_goal(self):
+        return self._target_position
+
     def get_approximate_shortest_paths(self, starts, ends):
         optimal_distances = []
         for start, end in zip(starts, ends):
@@ -403,7 +407,11 @@ class Point2DEnv(MultitaskEnv, Serializable):
         self._current_position[1] = pos[1]
 
     def set_goal(self, goal, dtype=np.float32):
-        self._current_goal = goal
+        self.fixed_goal = (
+            np.array(goal, dtype=dtype)
+            if goal is not None
+            else None)
+
         if hasattr(self, 'optimal_policy'):
             self.optimal_policy.set_goal(self.fixed_goal)
 
