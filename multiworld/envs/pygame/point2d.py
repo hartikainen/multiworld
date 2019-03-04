@@ -121,9 +121,6 @@ class Point2DEnv(MultitaskEnv, Serializable):
         self.walls = walls
 
         dtype = 'int64' if discretize else 'float32'
-        self.set_goal(fixed_goal, dtype=dtype)
-        self.ultimate_goal = np.array(fixed_goal, dtype=dtype)
-
         self.images_are_rgb = images_are_rgb
         self.discretize = discretize
 
@@ -169,11 +166,18 @@ class Point2DEnv(MultitaskEnv, Serializable):
             'state_achieved_goal': observation_box,
         })
 
+        self.fixed_goal = (
+            np.array(fixed_goal, dtype=dtype)
+            if fixed_goal is not None
+            else None)
+        self.set_goal(self.sample_metric_goal(), dtype=dtype)
+        self.ultimate_goal = np.array(fixed_goal, dtype=dtype)
+
         self.drawer = None
         self.initialize_grid_graph()
 
         self.optimal_policy = OptimalPoint2DEnvPolicy(
-            goal=self.fixed_goal,
+            goal=self._current_goal,
             graph=self.grid_graph,
             all_pairs_shortest_paths=self.all_pairs_shortest_paths)
 
@@ -399,11 +403,7 @@ class Point2DEnv(MultitaskEnv, Serializable):
         self._current_position[1] = pos[1]
 
     def set_goal(self, goal, dtype=np.float32):
-        self.fixed_goal = (
-            np.array(goal, dtype=dtype)
-            if goal is not None
-            else None)
-
+        self._current_goal = goal
         if hasattr(self, 'optimal_policy'):
             self.optimal_policy.set_goal(self.fixed_goal)
 
