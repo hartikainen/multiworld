@@ -100,8 +100,8 @@ class Point2DEnv(MultitaskEnv, Serializable):
             render_size=400,
             reward_type='dense',
             action_scale=1.0,
-            target_radius=1.0,
-            point_radius=0.0,
+            target_radius=0.5,
+            ball_radius=0.0,
             walls=None,
             observation_bounds=((-5, -5), (5, 5)),
             action_bounds=((-1, -1), (1, 1)),
@@ -128,13 +128,14 @@ class Point2DEnv(MultitaskEnv, Serializable):
         self.reward_type = reward_type
         self.action_scale = action_scale
         self.target_radius = target_radius
-        self.point_radius = point_radius
+        self.ball_radius = ball_radius
         self.terminate_on_success = terminate_on_success
 
         self.walls = walls
 
         dtype = 'int64' if discretize else 'float32'
         self.images_are_rgb = images_are_rgb
+        self.show_goal = show_goal
         self.discretize = discretize
 
         self._max_episode_steps = 50
@@ -184,7 +185,7 @@ class Point2DEnv(MultitaskEnv, Serializable):
             if fixed_goal is not None
             else None)
         self.set_goal(self.sample_metric_goal(), dtype=dtype)
-        self.ultimate_goal = np.array(fixed_goal, dtype=dtype)
+        self.ultimate_goal = self.fixed_goal
 
         self.drawer = None
         self.render_drawer = None
@@ -331,12 +332,6 @@ class Point2DEnv(MultitaskEnv, Serializable):
 
     def _position_inside_wall(self, position):
         return self._positions_inside_wall(position[None])[0]
-
-    def _sample_position(self, low, high):
-        pos = np.random.uniform(low, high)
-        while self._position_inside_wall(pos) is True:
-            pos = np.random.uniform(low, high)
-        return pos
 
     def _get_obs(self):
         observation = {
@@ -495,8 +490,8 @@ class Point2DEnv(MultitaskEnv, Serializable):
                 Color('green'),
             )
         drawer.draw_solid_circle(
-            self._position,
-            self.ball_radius,
+            self._current_position,
+            np.maximum(self.ball_radius, 0.5),
             Color('blue'),
         )
 
@@ -526,19 +521,30 @@ class Point2DEnv(MultitaskEnv, Serializable):
         if tick:
             drawer.tick(self.render_dt_msec)
 
-    def render(self, close=False):
+    def render(self, mode='human', close=False):
         if close:
             self.render_drawer = None
             return
 
         if self.render_drawer is None or self.render_drawer.terminated:
             self.render_drawer = PygameViewer(
-                self.render_size,
-                self.render_size,
-                x_bounds=(-self.boundary_dist-self.ball_radius, self.boundary_dist+self.ball_radius),
-                y_bounds=(-self.boundary_dist-self.ball_radius, self.boundary_dist+self.ball_radius),
+                screen_width=self.render_size,
+                screen_height=self.render_size,
+                x_bounds=(
+                    self.observation_box.low[0],
+                    self.observation_box.high[0]),
+                y_bounds=(
+                    self.observation_box.low[1],
+                    self.observation_box.high[1]),
                 render_onscreen=True,
             )
+            # self.render_drawer = PygameViewer(
+            #     self.render_size,
+            #     self.render_size,
+            #     x_bounds=(-self.boundary_dist-self.ball_radius, self.boundary_dist+self.ball_radius),
+            #     y_bounds=(-self.boundary_dist-self.ball_radius, self.boundary_dist+self.ball_radius),
+            #     render_onscreen=True,
+            # )
         self.draw(self.render_drawer, True)
 
     def get_diagnostics(self, paths, prefix=''):
@@ -599,18 +605,17 @@ class Point2DWallEnv(Point2DEnv):
 
     def __init__(
             self,
-            point_radius=0.0,
+            ball_radius=0.0,
             observation_bounds=((-5, -5), (5, 5)),
             wall_shape="zigzag",
             inner_wall_max_dist=2,
             thickness=1.0,
             wall_thickness=1.0,
-            inner_wall_max_dist=1,
-            **kwargs
+            **kwargs,
     ):
 
         self.quick_init(locals())
-        self.point_radius = point_radius
+        self.ball_radius = ball_radius
         self.inner_wall_max_dist = inner_wall_max_dist
         self.wall_shape = wall_shape
 
@@ -622,7 +627,7 @@ class Point2DWallEnv(Point2DEnv):
             walls = (
                 # Top wall
                 HorizontalWall(
-                    self.point_radius,
+                    self.ball_radius,
                     (2/5) * y_high,
                     # x_low * 0.6,
                     x_low * 0.4,
@@ -632,7 +637,7 @@ class Point2DWallEnv(Point2DEnv):
                 ),
                 # Bottom wall
                 HorizontalWall(
-                    self.point_radius,
+                    self.ball_radius,
                     (2/5) * y_low,
                     # 0.9 below s.t. the wall blocks the edges of the env
                     x_low + thickness * 0.9,
@@ -643,7 +648,7 @@ class Point2DWallEnv(Point2DEnv):
             )
 
         super().__init__(
-            point_radius=point_radius,
+            ball_radius=ball_radius,
             observation_bounds=observation_bounds,
             walls=walls,
             **kwargs)
