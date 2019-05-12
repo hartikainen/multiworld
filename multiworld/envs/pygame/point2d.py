@@ -1,10 +1,10 @@
 from collections import OrderedDict
+import logging
 
 import numpy as np
 from gym import spaces
 from pygame import Color
 
-from multiworld.core.image_env import ImageEnv
 from multiworld.core.multitask_env import MultitaskEnv
 from multiworld.core.serializable import Serializable
 from multiworld.envs.env_util import (
@@ -95,25 +95,38 @@ class Point2DEnv(MultitaskEnv, Serializable):
     def __init__(
             self,
             render_dt_msec=0,
+            action_l2norm_penalty=0,  # disabled for now
             render_onscreen=True,
             render_size=400,
             reward_type='dense',
+            action_scale=1.0,
             target_radius=1.0,
             point_radius=0.0,
-            walls=(),
+            walls=None,
             observation_bounds=((-5, -5), (5, 5)),
             action_bounds=((-1, -1), (1, 1)),
             fixed_goal=None,
             reset_positions=None,
             images_are_rgb=False,  # else black and white
             discretize=False,
-            terminate_on_success=False):
+            terminate_on_success=False,
+            show_goal=True,
+            **kwargs
+    ):
+        if walls is None:
+            walls = ()
+        if fixed_goal is not None:
+            fixed_goal = np.array(fixed_goal)
+        if len(kwargs) > 0:
+            LOGGER = logging.getLogger(__name__)
+            LOGGER.log(logging.WARNING, "WARNING, ignoring kwargs:", kwargs)
         self.quick_init(locals())
 
         self.render_dt_msec = render_dt_msec
         self.render_onscreen = render_onscreen
         self.render_size = render_size
         self.reward_type = reward_type
+        self.action_scale = action_scale
         self.target_radius = target_radius
         self.point_radius = point_radius
         self.terminate_on_success = terminate_on_success
@@ -174,6 +187,8 @@ class Point2DEnv(MultitaskEnv, Serializable):
         self.ultimate_goal = np.array(fixed_goal, dtype=dtype)
 
         self.drawer = None
+        self.render_drawer = None
+
         self.initialize_grid_graph()
 
         self.optimal_policy = OptimalPoint2DEnvPolicy(
@@ -317,6 +332,12 @@ class Point2DEnv(MultitaskEnv, Serializable):
     def _position_inside_wall(self, position):
         return self._positions_inside_wall(position[None])[0]
 
+    def _sample_position(self, low, high):
+        pos = np.random.uniform(low, high)
+        while self._position_inside_wall(pos) is True:
+            pos = np.random.uniform(low, high)
+        return pos
+
     def _get_obs(self):
         observation = {
             'observation': self._current_position.copy(),
@@ -330,7 +351,7 @@ class Point2DEnv(MultitaskEnv, Serializable):
         return observation
 
     def compute_rewards(self, actions, obs):
-        achieved_goals = obs['state_observation']
+        achieved_goals = obs['state_achieved_goal']
         desired_goals = obs['state_desired_goal']
         d = np.linalg.norm(achieved_goals - desired_goals, axis=-1)
 
@@ -338,6 +359,10 @@ class Point2DEnv(MultitaskEnv, Serializable):
             reward = -(d > self.target_radius).astype(np.float32)
         elif self.reward_type == "dense":
             reward = -d
+        elif self.reward_type == 'vectorized_dense':
+            reward = -np.abs(achieved_goals - desired_goals)
+        else:
+            raise NotImplementedError()
 
         return reward
 
@@ -419,32 +444,28 @@ class Point2DEnv(MultitaskEnv, Serializable):
 
     def get_image(self, width=None, height=None):
         """Returns a black and white image"""
-        if width is not None:
+        if self.drawer is None:
             if width != height:
                 raise NotImplementedError()
-            if width != self.render_size:
-                self.drawer = PygameViewer(
-                    screen_width=width,
-                    screen_height=height,
-                    x_bounds=(
-                        self.observation_box.low[0],
-                        self.observation_box.high[0]),
-                    y_bounds=(
-                        self.observation_box.low[1],
-                        self.observation_box.high[1]),
-                    render_onscreen=self.render_onscreen,
-                )
-                self.render_size = width
-        self.render()
-        image = self.drawer.get_image()
-
+            self.drawer = PygameViewer(
+                screen_width=width,
+                screen_height=height,
+                x_bounds=(
+                    self.observation_box.low[0],
+                    self.observation_box.high[0]),
+                y_bounds=(
+                    self.observation_box.low[1],
+                    self.observation_box.high[1]),
+                render_onscreen=self.render_onscreen,
+            )
+        self.draw(self.drawer, False)
+        img = self.drawer.get_image()
         if self.images_are_rgb:
-            image = image.transpose().flatten()
+            return img.transpose((1, 0, 2))
         else:
-            r, b = image[:, :, 0], image[:, :, 2]
-            image = (-r + b).flatten()
-
-        return image
+            r, g, b = img[:, :, 0], img[:, :, 1], img[:, :, 2]
+            img = (-r + b).transpose().flatten()
+            return img
 
     def set_to_goal(self, goal_dict):
         goal = goal_dict["state_desired_goal"]
@@ -461,56 +482,64 @@ class Point2DEnv(MultitaskEnv, Serializable):
         self._target_position = goal
         return self.get_env_state()
 
-    def render(self, mode='human', close=False):
-        if close:
-            self.drawer = None
-            return
-
-        if self.drawer is None or self.drawer.terminated:
-            self.drawer = PygameViewer(
-                self.render_size,
-                self.render_size,
-                x_bounds=self.observation_x_bounds,
-                y_bounds=self.observation_y_bounds,
-                render_onscreen=self.render_onscreen,
+    def draw(self, drawer, tick):
+        # if self.drawer is not None:
+        #     self.drawer.fill(Color('white'))
+        # if self.render_drawer is not None:
+        #     self.render_drawer.fill(Color('white'))
+        drawer.fill(Color('white'))
+        if self.show_goal:
+            drawer.draw_solid_circle(
+                self._target_position,
+                self.target_radius,
+                Color('green'),
             )
-
-        self.drawer.fill(Color('white'))
-        self.drawer.draw_solid_circle(
-            self._target_position,
-            np.max((self.target_radius, 0.05)) * 5,
-            Color('green'),
-        )
-        self.drawer.draw_solid_circle(
-            self._current_position,
-            np.max((self.point_radius, 0.05)) * 5,
+        drawer.draw_solid_circle(
+            self._position,
+            self.ball_radius,
             Color('blue'),
         )
 
         for wall in self.walls:
-            self.drawer.draw_segment(
+            drawer.draw_segment(
                 wall.endpoint1,
                 wall.endpoint2,
                 Color('black'),
             )
-            self.drawer.draw_segment(
+            drawer.draw_segment(
                 wall.endpoint2,
                 wall.endpoint3,
                 Color('black'),
             )
-            self.drawer.draw_segment(
+            drawer.draw_segment(
                 wall.endpoint3,
                 wall.endpoint4,
                 Color('black'),
             )
-            self.drawer.draw_segment(
+            drawer.draw_segment(
                 wall.endpoint4,
                 wall.endpoint1,
                 Color('black'),
             )
 
-        self.drawer.render()
-        self.drawer.tick(self.render_dt_msec)
+        drawer.render()
+        if tick:
+            drawer.tick(self.render_dt_msec)
+
+    def render(self, close=False):
+        if close:
+            self.render_drawer = None
+            return
+
+        if self.render_drawer is None or self.render_drawer.terminated:
+            self.render_drawer = PygameViewer(
+                self.render_size,
+                self.render_size,
+                x_bounds=(-self.boundary_dist-self.ball_radius, self.boundary_dist+self.ball_radius),
+                y_bounds=(-self.boundary_dist-self.ball_radius, self.boundary_dist+self.ball_radius),
+                render_onscreen=True,
+            )
+        self.draw(self.render_drawer, True)
 
     def get_diagnostics(self, paths, prefix=''):
         statistics = OrderedDict()
@@ -575,6 +604,8 @@ class Point2DWallEnv(Point2DEnv):
             wall_shape="zigzag",
             inner_wall_max_dist=2,
             thickness=1.0,
+            wall_thickness=1.0,
+            inner_wall_max_dist=1,
             **kwargs
     ):
 
@@ -619,14 +650,14 @@ class Point2DWallEnv(Point2DEnv):
 
 
 if __name__ == "__main__":
-    # e = Point2DEnv()
+    import gym
     import matplotlib.pyplot as plt
 
     # e = Point2DWallEnv("-", render_size=84)
     e = ImageEnv(Point2DWallEnv(wall_shape="u", render_size=200))
     for i in range(10):
         e.reset()
-        for j in range(50):
+        for j in range(5):
             e.step(np.random.rand(2))
             e.render()
             im = e.get_image()

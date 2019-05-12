@@ -1,7 +1,6 @@
 import random
 
 import cv2
-import mujoco_py
 import numpy as np
 import warnings
 from PIL import Image
@@ -27,6 +26,7 @@ class ImageEnv(ProxyEnv, MultitaskEnv):
             image_length=None,
             presampled_goals=None,
             non_presampled_goal_img_is_garbage=False,
+            recompute_reward=True,
     ):
         """
 
@@ -55,6 +55,7 @@ class ImageEnv(ProxyEnv, MultitaskEnv):
         self.transpose = transpose
         self.grayscale = grayscale
         self.normalize = normalize
+        self.recompute_reward = recompute_reward
         self.non_presampled_goal_img_is_garbage = non_presampled_goal_img_is_garbage
 
         if image_length is not None:
@@ -75,10 +76,9 @@ class ImageEnv(ProxyEnv, MultitaskEnv):
             # viewer = mujoco_py.MjRenderContextOffscreen(sim, device_id=-1)
             # init_camera(viewer.cam)
             # sim.add_render_context(viewer)
-        self._render_local = False
         img_space = Box(0, 1, (self.image_length,), dtype=np.float32)
         self._img_goal = img_space.sample() #has to be done for presampling
-        spaces = self.wrapped_env.observation_space.spaces
+        spaces = self.wrapped_env.observation_space.spaces.copy()
         spaces['observation'] = img_space
         spaces['desired_goal'] = img_space
         spaces['achieved_goal'] = img_space
@@ -111,11 +111,13 @@ class ImageEnv(ProxyEnv, MultitaskEnv):
             self.num_goals_presampled = 0
         else:
             self.num_goals_presampled = presampled_goals[random.choice(list(presampled_goals))].shape[0]
+        self._last_image = None
 
     def step(self, action):
         obs, reward, done, info = self.wrapped_env.step(action)
         new_obs = self._update_obs(obs)
-        reward = self.compute_reward(action, new_obs)
+        if self.recompute_reward:
+            reward = self.compute_reward(action, new_obs)
         self._update_info(info, obs)
         return new_obs, reward, done, info
 
@@ -143,6 +145,7 @@ class ImageEnv(ProxyEnv, MultitaskEnv):
             self.wrapped_env.set_to_goal(self.wrapped_env.get_goal())
             self._img_goal = self._get_flat_img()
             self.wrapped_env.set_env_state(env_state)
+
         return self._update_obs(obs)
 
     def _get_obs(self):
@@ -171,14 +174,11 @@ class ImageEnv(ProxyEnv, MultitaskEnv):
         return obs
 
     def _get_flat_img(self):
-        # returns the image as a torch format np array
         image_obs = self._wrapped_env.get_image(
             width=self.imsize,
             height=self.imsize,
         )
-        if self._render_local:
-            cv2.imshow('env', image_obs)
-            cv2.waitKey(1)
+        self._last_image = image_obs
         if self.grayscale:
             image_obs = Image.fromarray(image_obs).convert('L')
             image_obs = np.array(image_obs)
@@ -186,13 +186,22 @@ class ImageEnv(ProxyEnv, MultitaskEnv):
             image_obs = image_obs / 255.0
         if self.transpose:
             image_obs = image_obs.transpose()
+        assert image_obs.shape[0] == self.channels
         return image_obs.flatten()
 
-    def render(self):
-        self.wrapped_env.render()
-
-    def enable_render(self):
-        self._render_local = True
+    def render(self, mode='wrapped'):
+        if mode == 'wrapped':
+            self.wrapped_env.render()
+        elif mode == 'cv2':
+            if self._last_image is None:
+                self._last_image = self._wrapped_env.get_image(
+                    width=self.imsize,
+                    height=self.imsize,
+                )
+            cv2.imshow('ImageEnv', self._last_image)
+            cv2.waitKey(1)
+        else:
+            raise ValueError("Invalid render mode: {}".format(mode))
 
     """
     Multitask functions
@@ -219,10 +228,12 @@ class ImageEnv(ProxyEnv, MultitaskEnv):
             warnings.warn("Sampling goal images is slow")
         img_goals = np.zeros((batch_size, self.image_length))
         goals = self.wrapped_env.sample_goals(batch_size)
+        pre_state = self.wrapped_env.get_env_state()
         for i in range(batch_size):
             goal = self.unbatchify_dict(goals, i)
             self.wrapped_env.set_to_goal(goal)
             img_goals[i, :] = self._get_flat_img()
+        self.wrapped_env.set_env_state(pre_state)
         goals['desired_goal'] = img_goals
         goals['image_desired_goal'] = img_goals
         return goals
@@ -234,7 +245,7 @@ class ImageEnv(ProxyEnv, MultitaskEnv):
         if self.reward_type=='image_distance':
             return -dist
         elif self.reward_type=='image_sparse':
-            return (dist<self.threshold).astype(float)-1
+            return -(dist > self.threshold).astype(float)
         elif self.reward_type=='wrapped_env':
             return self.wrapped_env.compute_rewards(actions, obs)
         else:
@@ -257,9 +268,9 @@ class ImageEnv(ProxyEnv, MultitaskEnv):
             ))
         return statistics
 
-def normalize_image(image):
+def normalize_image(image, dtype=np.float64):
     assert image.dtype == np.uint8
-    return np.float64(image) / 255.0
+    return dtype(image) / 255.0
 
 def unormalize_image(image):
     assert image.dtype != np.uint8
