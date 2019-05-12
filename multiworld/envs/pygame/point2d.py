@@ -5,6 +5,7 @@ import numpy as np
 from gym import spaces
 from pygame import Color
 
+from multiworld.core.image_env import ImageEnv
 from multiworld.core.multitask_env import MultitaskEnv
 from multiworld.core.serializable import Serializable
 from multiworld.envs.env_util import (
@@ -652,6 +653,16 @@ class Point2DWallEnv(Point2DEnv):
             observation_bounds=observation_bounds,
             walls=walls,
             **kwargs)
+
+
+def Point2DImageWallEnv(imsize=64, *args, **kwargs):
+    env = Point2DWallEnv(*args, **kwargs)
+
+    return ImageEnv(
+        wrapped_env=env,
+        imsize=env.render_size,
+        transpose=True,
+    )
 
 
 if __name__ == "__main__":
