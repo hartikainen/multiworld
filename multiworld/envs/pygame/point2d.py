@@ -122,6 +122,7 @@ class Point2DEnv(MultitaskEnv, Serializable):
             LOGGER = logging.getLogger(__name__)
             LOGGER.log(logging.WARNING, "WARNING, ignoring kwargs:", kwargs)
         self.quick_init(locals())
+        self.succeeded_this_episode = False
 
         self.render_dt_msec = render_dt_msec
         self.render_onscreen = render_onscreen
@@ -250,6 +251,7 @@ class Point2DEnv(MultitaskEnv, Serializable):
             self._current_position - self._target_position, ord=2)
 
         is_success = distance_to_target < self.target_radius
+        self.succeeded_this_episode |= is_success
 
         observation = self._get_obs()
         reward = self.compute_reward(action, observation)
@@ -274,6 +276,7 @@ class Point2DEnv(MultitaskEnv, Serializable):
             'velocity': action,
             'speed': np.linalg.norm(action),
             'is_success': is_success,
+            'succeeded_this_episode': self.succeeded_this_episode,
         }
         done = is_success and self.terminate_on_success
         return observation, reward, done, info
@@ -311,6 +314,7 @@ class Point2DEnv(MultitaskEnv, Serializable):
         return position
 
     def reset(self):
+        self.succeeded_this_episode = False
         self._current_position = self.get_reset_position()
         self._target_position = self.sample_goal()['desired_goal']
 
