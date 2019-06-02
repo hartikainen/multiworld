@@ -186,8 +186,8 @@ class Point2DEnv(MultitaskEnv, Serializable):
             np.array(fixed_goal, dtype=dtype)
             if fixed_goal is not None
             else None)
-        self.set_goal(self.sample_metric_goal(), dtype=dtype)
         self.ultimate_goal = self.fixed_goal
+        self.set_goal(self.sample_goal(), dtype=dtype)
 
         self.drawer = None
         self.render_drawer = None
