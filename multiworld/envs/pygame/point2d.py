@@ -279,7 +279,7 @@ class Point2DEnv(MultitaskEnv, Serializable):
             'succeeded_this_episode': self.succeeded_this_episode,
         }
         done = is_success and self.terminate_on_success
-        return observation, reward, done, info
+        return observation, np.asscalar(reward), done, info
 
     def handle_collisions(self, previous_positions, new_positions):
         new_positions = np.array([
@@ -299,7 +299,7 @@ class Point2DEnv(MultitaskEnv, Serializable):
 
     def get_reset_positions(self, N=1):
         if self._reset_positions is None:
-            positions = self._sample_realistic_observations(N)
+            positions = self._sample_realistic_positions(N)
         else:
             positions = self._reset_positions[np.random.choice(
                 self._reset_positions.shape[0], N)]
@@ -316,7 +316,7 @@ class Point2DEnv(MultitaskEnv, Serializable):
     def reset(self):
         self.succeeded_this_episode = False
         self._current_position = self.get_reset_position()
-        self._target_position = self.sample_goal()['desired_goal']
+        self._target_position = self.sample_goal()['state_observation']
 
         if self.discretize:
             assert issubclass(self._target_position.dtype.type, np.integer)
@@ -353,7 +353,11 @@ class Point2DEnv(MultitaskEnv, Serializable):
     def compute_rewards(self, actions, obs):
         achieved_goals = obs['state_observation']
         desired_goals = obs['state_desired_goal']
-        d = np.linalg.norm(achieved_goals - desired_goals, axis=-1)
+        d = np.linalg.norm(
+            achieved_goals - desired_goals,
+            axis=-1,
+            keepdims=True
+        )
 
         if self.reward_type == "sparse":
             reward = -(d > self.target_radius).astype(np.float32)
@@ -379,7 +383,7 @@ class Point2DEnv(MultitaskEnv, Serializable):
                 pos = np.random.uniform(low, high)
         return pos
 
-    def _sample_realistic_observations(self, N=1):
+    def _sample_realistic_positions(self, N=1):
         positions = np.array([
             self.observation_box.sample()
             for _ in range(N)
@@ -401,26 +405,22 @@ class Point2DEnv(MultitaskEnv, Serializable):
         return positions
 
     def sample_metric_goal(self):
-        goals = self._sample_realistic_observations(1)
-
-        goals_inside_walls = self._positions_inside_wall(goals)
-        assert np.all(~goals_inside_walls), (goals, self.walls)
-
-        return goals[0]
+        positions = self._sample_realistic_positions(1)
+        return {
+            'state_observation': positions[0],
+            'state_desired_goal': positions[0],
+        }
 
     def sample_goals(self, N=1):
         if self.fixed_goal is None:
-            goals = self._sample_realistic_observations(N)
+            goals = self._sample_realistic_positions(N)
         else:
             goals = np.repeat(self.fixed_goal[None], N, axis=0)
 
         goals_inside_walls = self._positions_inside_wall(goals)
         assert np.all(~goals_inside_walls), (goals, self.walls)
 
-        return {
-            'desired_goal': goals,
-            'state_desired_goal': goals,
-        }
+        return {'state_observation': goals}
 
     def sample_goal(self):
         samples = self.sample_goals(N=1)
@@ -428,14 +428,15 @@ class Point2DEnv(MultitaskEnv, Serializable):
         return sample
 
     def set_position(self, pos):
-        self._current_position[0] = pos[0]
-        self._current_position[1] = pos[1]
+        assert self._current_position.shape == pos.shape
+        self._current_position[:2] = pos[:2]
 
     def set_goal(self, goal, dtype=np.float32):
-        self.fixed_goal = (
-            np.array(goal, dtype=dtype)
-            if goal is not None
-            else None)
+        self.fixed_goal = goal['state_observation']
+
+        if self.fixed_goal is not None and self.fixed_goal.size > 2:
+            from pprint import pprint; import ipdb; ipdb.set_trace(context=30)
+            pass
 
         if hasattr(self, 'optimal_policy'):
             self.optimal_policy.set_goal(self.fixed_goal)
@@ -466,6 +467,9 @@ class Point2DEnv(MultitaskEnv, Serializable):
             r, g, b = img[:, :, 0], img[:, :, 1], img[:, :, 2]
             img = (-r + b).transpose().flatten()
             return img
+
+    def position_to_observation(self, positions):
+        return {'state_observation': positions}
 
     def set_to_goal(self, goal_dict):
         goal = goal_dict["state_desired_goal"]
