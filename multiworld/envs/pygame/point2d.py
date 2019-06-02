@@ -229,7 +229,7 @@ class Point2DEnv(MultitaskEnv, Serializable):
             get_shortest_distances(self.all_pairs_shortest_paths))
 
     def numeric_observations(self, observations):
-        return observations['observation']
+        return observations['state_observation']
 
     def step(self, action):
         action = np.clip(
@@ -347,7 +347,7 @@ class Point2DEnv(MultitaskEnv, Serializable):
         return observation
 
     def compute_rewards(self, actions, obs):
-        achieved_goals = obs['state_achieved_goal']
+        achieved_goals = obs['state_observation']
         desired_goals = obs['state_desired_goal']
         d = np.linalg.norm(achieved_goals - desired_goals, axis=-1)
 
