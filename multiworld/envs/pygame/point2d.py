@@ -281,6 +281,45 @@ class Point2DEnv(MultitaskEnv, Serializable):
         done = is_success and self.terminate_on_success
         return observation, np.asscalar(reward), done, info
 
+    def get_path_infos(self, paths):
+        infos = {}
+
+        if getattr(self, 'wall_shape', None) != '-':
+            return infos
+
+        lefts_success, rights_success = 0, 0
+        goals_reached = 0
+        for path in paths:
+            observations = path['observations']['observation']
+            succeeded = np.any(path['infos']['is_success'][-5:])
+            crossed_x_indices = (
+                np.flatnonzero(observations[:, 1] > 0))
+            did_not_cross_x = crossed_x_indices.size < 1
+
+            if did_not_cross_x:
+                continue
+
+            first_crossed_x_index = crossed_x_indices[0]
+
+            if observations[first_crossed_x_index, 1] < -self.inner_wall_max_dist + 2:
+                lefts_success += int(succeeded)
+            elif self.inner_wall_max_dist - 2  < observations[first_crossed_x_index, 1]:
+                rights_success += int(succeeded)
+            else:
+                raise ValueError("Should never be here!")
+
+        infos.update({
+            'succeeded_from_both_sides': (
+                lefts_success > 0 and rights_success > 0),
+            'succeeded_from_left_count': lefts_success,
+            'succeeded_from_right_count': rights_success,
+        })
+
+
+
+        return infos
+
+
     def handle_collisions(self, previous_positions, new_positions):
         new_positions = np.array([
             self.handle_collision(previous_position, new_position)
@@ -653,6 +692,15 @@ class Point2DWallEnv(Point2DEnv):
                     x_high * 0.4,
                     # x_high * 0.6,
                     thickness=thickness,
+                ),
+            )
+        elif wall_shape == '-':
+            walls = (
+                HorizontalWall(
+                    self.ball_radius,
+                    0,
+                    -self.inner_wall_max_dist,
+                    self.inner_wall_max_dist,
                 ),
             )
 
