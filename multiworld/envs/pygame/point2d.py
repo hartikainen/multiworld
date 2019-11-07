@@ -301,9 +301,9 @@ class Point2DEnv(MultitaskEnv, Serializable):
 
             first_crossed_x_index = crossed_x_indices[0]
 
-            if observations[first_crossed_x_index, 1] < -self.inner_wall_max_dist + 2:
+            if observations[first_crossed_x_index, 0] < -self.inner_wall_max_dist + 2:
                 lefts_success += int(succeeded)
-            elif self.inner_wall_max_dist - 2  < observations[first_crossed_x_index, 1]:
+            elif self.inner_wall_max_dist - 2  < observations[first_crossed_x_index, 0]:
                 rights_success += int(succeeded)
             else:
                 raise ValueError("Should never be here!")
@@ -569,15 +569,15 @@ class Point2DEnv(MultitaskEnv, Serializable):
         if tick:
             drawer.tick(self.render_dt_msec)
 
-    def render(self, mode='human', close=False):
+    def render(self, mode='human', close=False, width=None, height=None):
         if close:
             self.render_drawer = None
             return
 
         if self.render_drawer is None or self.render_drawer.terminated:
             self.render_drawer = PygameViewer(
-                screen_width=self.render_size,
-                screen_height=self.render_size,
+                screen_width=width or self.render_size,
+                screen_height=width or self.render_size,
                 x_bounds=(
                     self.observation_box.low[0],
                     self.observation_box.high[0]),
