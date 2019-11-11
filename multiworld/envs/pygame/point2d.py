@@ -291,7 +291,8 @@ class Point2DEnv(MultitaskEnv, Serializable):
         goals_reached = 0
         for path in paths:
             observations = path['observations']['observation']
-            succeeded = np.any(path['infos']['is_success'][-5:])
+            path_length = path['terminals'].size
+            succeeded = np.any(path['infos']['is_success'][-path_length//2:])
             crossed_x_indices = (
                 np.flatnonzero(observations[:, 1] > 0))
             did_not_cross_x = crossed_x_indices.size < 1
