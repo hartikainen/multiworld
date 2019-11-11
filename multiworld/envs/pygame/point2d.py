@@ -1,9 +1,15 @@
 from collections import OrderedDict
+import glob
+import os
+import re
 import logging
 
 import numpy as np
 from gym import spaces
 from pygame import Color
+import matplotlib.pyplot as plt
+import matplotlib as mpl
+mpl.use('Agg')
 
 from multiworld.core.image_env import ImageEnv
 from multiworld.core.multitask_env import MultitaskEnv
@@ -281,7 +287,7 @@ class Point2DEnv(MultitaskEnv, Serializable):
         done = is_success and self.terminate_on_success
         return observation, np.asscalar(reward), done, info
 
-    def get_path_infos(self, paths):
+    def get_path_infos(self, paths, evaluation_type='training'):
         infos = {}
 
         if getattr(self, 'wall_shape', None) != '-':
@@ -316,7 +322,52 @@ class Point2DEnv(MultitaskEnv, Serializable):
             'succeeded_from_right_count': rights_success,
         })
 
+        log_base_dir = os.getcwd()
+        heatmap_dir = os.path.join(log_base_dir, 'heatmap')
+        if not os.path.exists(heatmap_dir):
+            os.makedirs(heatmap_dir)
 
+        previous_heatmaps = glob.glob(
+            os.path.join(heatmap_dir, f"{evaluation_type}-iteration-*-heatmap.png"))
+        heatmap_iterations = [
+            int(re.search(f"{evaluation_type}-iteration-(\d+)-heatmap.png", x).group(1))
+            for x in previous_heatmaps
+        ]
+        if not heatmap_iterations:
+            iteration = 0
+        else:
+            iteration = int(max(heatmap_iterations) + 1)
+
+        x, y = np.split(np.concatenate([
+            path['observations']['observation']
+            for path in paths
+        ]), 2, axis=-1)
+
+        x_bounds = tuple(self.observation_x_bounds)
+        y_bounds = tuple(self.observation_y_bounds)
+
+        figure, axis = plt.subplots(1, 1)
+        bins_per_unit = 5
+        counts, xedges, yedges, image = axis.hist2d(
+            x.squeeze(),
+            y.squeeze(),
+            bins=(
+                int(np.ptp(x_bounds) * bins_per_unit),
+                int(np.ptp(y_bounds) * bins_per_unit),
+            ),
+            range=(x_bounds, y_bounds),
+            cmap="PuBuGn",
+            vmax=10,
+        )
+
+        plt.colorbar(image, ax=axis)
+
+        heatmap_path = os.path.join(
+            heatmap_dir,
+            f'{evaluation_type}-iteration-{iteration:05}-heatmap.png')
+        plt.savefig(heatmap_path)
+        figure.clf()
+        plt.close(figure)
 
         return infos
 
