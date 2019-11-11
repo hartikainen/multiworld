@@ -45,7 +45,7 @@ def grid_2d_graph_with_diagonal_edges(m, n, *args, **kwargs):
                 for dj in (-1, 1):
                     ii, jj = i + di, j + dj
                     if 0 <= ii < width and 0 <= jj < height:
-                        end = (x_index[ii], x_index[jj])
+                        end = (x_index[ii], y_index[jj])
                         graph.add_edge(start, end, weight=1.0)
 
     return graph
