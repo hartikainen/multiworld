@@ -301,9 +301,9 @@ class Point2DEnv(MultitaskEnv, Serializable):
 
             first_crossed_x_index = crossed_x_indices[0]
 
-            if observations[first_crossed_x_index, 0] < -self.inner_wall_max_dist + 2:
+            if observations[first_crossed_x_index, 0] < -self.inner_wall_max_dist + 1.0:
                 lefts_success += int(succeeded)
-            elif self.inner_wall_max_dist - 2  < observations[first_crossed_x_index, 0]:
+            elif self.inner_wall_max_dist - 1.0  < observations[first_crossed_x_index, 0]:
                 rights_success += int(succeeded)
             else:
                 raise ValueError("Should never be here!")
