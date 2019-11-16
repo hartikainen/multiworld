@@ -617,6 +617,20 @@ class Point2DEnv(MultitaskEnv, Serializable):
                 Color('black'),
             )
 
+        for water in getattr(self, 'waters', ()):
+            lower_left, upper_right = water
+            # upper_left = (lower_left[0], upper_right[1])
+            # lower_right = (upper_right[0], lower_left[1])
+            # endpoints = np.array((lower_left, upper_left, upper_right, lower_right))
+            # for point1, point2 in zip(endpoints, np.roll(endpoints, -1, axis=0)):
+            #     drawer.draw_segment(point1, point2, Color('blue'))
+            # upper_left = None
+            # rect_location = (upper_right + lower_left) / 2
+            # rect_location = (lower_left[0], upper_right[1])
+            rect_location = lower_left
+            width, height = (upper_right - lower_left) # + [0, 0.1]
+            drawer.draw_rect(rect_location, width, height, (0, 0, 255), thickness=0)
+
         drawer.render()
         if tick:
             drawer.tick(self.render_dt_msec)
@@ -627,8 +641,11 @@ class Point2DEnv(MultitaskEnv, Serializable):
             return
 
         if self.render_drawer is None or self.render_drawer.terminated:
+            observation_width, observation_height = (
+                self.observation_box.high - self.observation_box.low)
             self.render_drawer = PygameViewer(
-                screen_width=width or self.render_size,
+                screen_width=width or int(
+                    self.render_size * observation_width / observation_height),
                 screen_height=width or self.render_size,
                 x_bounds=(
                     self.observation_box.low[0],
@@ -761,6 +778,109 @@ class Point2DWallEnv(Point2DEnv):
             observation_bounds=observation_bounds,
             walls=walls,
             **kwargs)
+
+
+class Point2DBridgeEnv(Point2DEnv):
+    def __init__(
+            self,
+            ball_radius=0.0,
+            bridge_width=1.0,
+            bridge_length=4.0,
+            wall_width=4.0,
+            wall_length=0.1,
+            scale=1.0,
+            **kwargs,
+    ):
+
+        self.quick_init(locals())
+        self.ball_radius = ball_radius
+
+        self.bridge_width = bridge_width
+        self.bridge_length = bridge_length
+        self.wall_width = wall_width
+        self.wall_length = wall_length
+        self.scale = scale
+
+        # 8.0 = 2.0 behind the wall + 2.0 between wall and bridge
+        # + 4.0 after the bridge.
+        total_length = scale * (bridge_length + wall_length * 2 + 8.0)
+        total_width = scale * (2.0 + max(wall_width, bridge_width) + 2.0)
+
+        max_x = total_length / 2
+        min_x = - max_x
+        max_y = total_width / 2
+        min_y = - max_y
+
+        observation_bounds = np.array(((min_x, min_y), (max_x, max_y)))
+        x_low, x_high = observation_bounds[:, 0]
+        y_low, y_high = observation_bounds[:, 1]
+
+        walls = (
+            VerticalWall(
+                self.ball_radius,
+                min_x + 2.0,
+                -wall_width / 2,
+                wall_width / 2,
+                thickness=0,
+            ),
+        )
+
+        water_width = (total_width - bridge_width) / 2 # - bridge_width
+        water_length = bridge_length
+        self.waters = ( # lower-left, upper-right
+            (
+                np.array((min_x + 2.0 + wall_length + 2.0, max_y - water_width)),
+                np.array((min_x + 2.0 + wall_length + 2.0 + water_length, max_y + 0.1)),
+            ),
+            (
+                np.array((min_x + 2.0 + wall_length + 2.0, min_y - 0.1)),
+                np.array((min_x + 2.0 + wall_length + 2.0 + water_length, min_y + water_width)),
+            ),
+            # (
+            #     np.array((-2.0, -4.0)),
+            #     np.array((3.0, 4.0))
+            # ),
+        )
+
+        super().__init__(
+            ball_radius=ball_radius,
+            observation_bounds=observation_bounds,
+            walls=walls,
+            reset_positions=((min_x + 1, 0), ),
+            fixed_goal=(max_x - 1.0, 0),
+            **kwargs)
+
+    def in_water(self, states):
+        states = np.atleast_2d(states)
+
+        lower_lefts, upper_rights = np.swapaxes(self.waters, 1, 0)
+        in_waters = np.all(
+            np.logical_and(lower_lefts <= states, states <= upper_rights),
+            axis=1)
+
+        in_water = np.any(in_waters)
+
+        expected_value = False
+        for lower_left, upper_right in self.waters:
+            in_water_index = np.all(
+                np.logical_and(lower_left <= states, states <= upper_right),
+                axis=1)
+            if np.any(in_water_index):
+                expected_value = True
+
+        assert in_water == expected_value, (in_water, expected_value)
+
+        return in_water
+
+    def step(self, *args, **kwargs):
+        observation, reward, done, info = super(Point2DBridgeEnv, self).step(
+            *args, **kwargs)
+
+        if self.in_water(observation['state_observation']):
+            reward = -1000
+            done = True
+
+        return observation, reward, done, info
 
 
 def Point2DImageWallEnv(imsize=64, *args, **kwargs):
