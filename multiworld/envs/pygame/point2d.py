@@ -28,6 +28,68 @@ from .point_2d_network import (
 )
 
 
+def plot_walls(axis, walls):
+    wall_rectangles = []
+
+    for wall in walls:
+        top_right = wall.endpoint1
+        bottom_right = wall.endpoint2
+        bottom_left = wall.endpoint3
+        top_left = wall.endpoint4
+
+        width = max(top_right[0] - top_left[0], 0.1)
+        height = max(top_right[1] - bottom_right[1], 0.1)
+        wall_rectangle = mpl.patches.Rectangle(
+            bottom_left,
+            width,
+            height,
+            fill=True)
+
+        wall_rectangles.append(wall_rectangle)
+
+    wall_patch_collection = mpl.collections.PatchCollection(
+        wall_rectangles,
+        facecolor='black',
+        edgecolor=None)
+
+    axis.add_collection(wall_patch_collection)
+
+    return wall_patch_collection, wall_rectangles
+
+
+def plot_waters(axis, waters):
+    water_rectangles = []
+
+    for water in waters:
+        bottom_left, top_right = water
+        # top_right = water.endpoint1
+        # bottom_right = water.endpoint2
+        # bottom_left = water.endpoint3
+        # top_left = water.endpoint4
+        # top_left = (bottom_left[0], top_right[1])
+        # bottom_right = (top_right[0], bottom_left[1])
+        width, height = top_right - bottom_left
+
+        # width = top_right[0] - top_left[0]
+        # height = top_right[1] - bottom_right[1]
+        water_rectangle = mpl.patches.Rectangle(
+            bottom_left,
+            width,
+            height,
+            fill=True)
+
+        water_rectangles.append(water_rectangle)
+
+    water_patch_collection = mpl.collections.PatchCollection(
+        water_rectangles,
+        facecolor='blue',
+        edgecolor=None)
+
+    axis.add_collection(water_patch_collection)
+
+    return water_patch_collection, water_rectangles
+
+
 class OptimalPoint2DEnvPolicy(object):
     def __init__(self,
                  goal,
@@ -290,37 +352,39 @@ class Point2DEnv(MultitaskEnv, Serializable):
     def get_path_infos(self, paths, evaluation_type='training'):
         infos = {}
 
-        if getattr(self, 'wall_shape', None) != '-':
+        if (getattr(self, 'wall_shape', None) != '-'
+            and not isinstance(self, Point2DBridgeEnv)):
             return infos
 
-        lefts_success, rights_success = 0, 0
-        goals_reached = 0
-        for path in paths:
-            observations = path['observations']['observation']
-            path_length = path['terminals'].size
-            succeeded = np.any(path['infos']['is_success'][-path_length//2:])
-            crossed_x_indices = (
-                np.flatnonzero(observations[:, 1] > 0))
-            did_not_cross_x = crossed_x_indices.size < 1
+        if getattr(self, 'wall_shape', None) == '-':
+            lefts_success, rights_success = 0, 0
+            goals_reached = 0
+            for path in paths:
+                observations = path['observations']['observation']
+                path_length = path['terminals'].size
+                succeeded = np.any(path['infos']['is_success'][-path_length//2:])
+                crossed_x_indices = (
+                    np.flatnonzero(observations[:, 1] > 0))
+                did_not_cross_x = crossed_x_indices.size < 1
 
-            if did_not_cross_x:
-                continue
+                if did_not_cross_x:
+                    continue
 
-            first_crossed_x_index = crossed_x_indices[0]
+                first_crossed_x_index = crossed_x_indices[0]
 
-            if observations[first_crossed_x_index, 0] <= -self.inner_wall_max_dist + 1.0:
-                lefts_success += int(succeeded)
-            elif self.inner_wall_max_dist - 1.0  <= observations[first_crossed_x_index, 0]:
-                rights_success += int(succeeded)
-            else:
-                raise ValueError("Should never be here!")
+                if observations[first_crossed_x_index, 0] <= -self.inner_wall_max_dist + 1.0:
+                    lefts_success += int(succeeded)
+                elif self.inner_wall_max_dist - 1.0  <= observations[first_crossed_x_index, 0]:
+                    rights_success += int(succeeded)
+                else:
+                    raise ValueError("Should never be here!")
 
-        infos.update({
-            'succeeded_from_both_sides': (
-                lefts_success > 0 and rights_success > 0),
-            'succeeded_from_left_count': lefts_success,
-            'succeeded_from_right_count': rights_success,
-        })
+            infos.update({
+                'succeeded_from_both_sides': (
+                    lefts_success > 0 and rights_success > 0),
+                'succeeded_from_left_count': lefts_success,
+                'succeeded_from_right_count': rights_success,
+            })
 
         log_base_dir = os.getcwd()
         heatmap_dir = os.path.join(log_base_dir, 'heatmap')
@@ -338,29 +402,67 @@ class Point2DEnv(MultitaskEnv, Serializable):
         else:
             iteration = int(max(heatmap_iterations) + 1)
 
-        x, y = np.split(np.concatenate([
-            path['observations']['observation']
-            for path in paths
-        ]), 2, axis=-1)
-
-        x_bounds = tuple(self.observation_x_bounds)
-        y_bounds = tuple(self.observation_y_bounds)
-
         figure, axis = plt.subplots(1, 1)
-        bins_per_unit = 5
-        counts, xedges, yedges, image = axis.hist2d(
-            x.squeeze(),
-            y.squeeze(),
-            bins=(
-                int(np.ptp(x_bounds) * bins_per_unit),
-                int(np.ptp(y_bounds) * bins_per_unit),
-            ),
-            range=(x_bounds, y_bounds),
-            cmap="PuBuGn",
-            vmax=10,
-        )
+        axis.set_xlim(self.observation_x_bounds)
+        axis.set_ylim(self.observation_y_bounds)
 
-        plt.colorbar(image, ax=axis)
+        color_map = plt.cm.get_cmap('PuBuGn', len(paths))
+        for i, path in enumerate(paths):
+            positions = path['observations']['observation']
+            color = color_map(i)
+            axis.plot(
+                positions[:, 0],
+                positions[:, 1],
+                color=color,
+                linestyle=':',
+                linewidth=1.0,
+                label='evaluation_paths' if i == 0 else None,
+            )
+            axis.scatter(
+                *positions[0],
+                color=color,
+                marker='o',
+                s=20.0,
+            )
+            axis.scatter(
+                *positions[-1],
+                color=color,
+                marker='x',
+                s=20.0,
+            )
+
+        axis.scatter(
+            *self.fixed_goal,
+            color='red',
+            marker='*',
+            s=30.0)
+
+        plot_walls(axis, self.walls)
+        if hasattr(self, 'waters'):
+            plot_waters(axis, self.waters)
+
+        # x, y = np.split(np.concatenate([
+        #     path['observations']['observation']
+        #     for path in paths
+        # ]), 2, axis=-1)
+
+        # x_bounds = tuple(self.observation_x_bounds)
+        # y_bounds = tuple(self.observation_y_bounds)
+
+        # bins_per_unit = 5
+        # counts, xedges, yedges, image = axis.hist2d(
+        #     x.squeeze(),
+        #     y.squeeze(),
+        #     bins=(
+        #         int(np.ptp(x_bounds) * bins_per_unit),
+        #         int(np.ptp(y_bounds) * bins_per_unit),
+        #     ),
+        #     range=(x_bounds, y_bounds),
+        #     cmap="PuBuGn",
+        #     vmax=10,
+        # )
+
+        # plt.colorbar(image, ax=axis)
 
         heatmap_path = os.path.join(
             heatmap_dir,
