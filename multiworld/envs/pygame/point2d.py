@@ -691,9 +691,10 @@ class Point2DEnv(MultitaskEnv, Serializable):
         if self.show_goal:
             drawer.draw_solid_circle(
                 self._target_position,
-                self.target_radius,
+                np.maximum(self.target_radius, 0.5),
                 Color('green'),
             )
+
         drawer.draw_solid_circle(
             self._current_position,
             np.maximum(self.ball_radius, 0.5),
@@ -894,10 +895,12 @@ class Point2DBridgeEnv(Point2DEnv):
             wall_width=4.0,
             wall_length=0.1,
             scale=1.0,
+            fixed_goal=None,
             **kwargs,
     ):
 
         self.quick_init(locals())
+
         self.ball_radius = ball_radius
 
         self.bridge_width = bridge_width
@@ -909,10 +912,20 @@ class Point2DBridgeEnv(Point2DEnv):
         # 8.0 = 2.0 behind the wall + 2.0 between wall and bridge
         # + 4.0 after the bridge.
         total_length = scale * (bridge_length + wall_length * 2 + 8.0)
-        total_width = scale * (2.0 + max(wall_width, bridge_width) + 2.0)
+        fixed_goal_y = fixed_goal[1] if fixed_goal else 0.0
+        total_width = scale * (
+            2.0
+            + max(wall_width, bridge_width, 2 * np.abs(fixed_goal_y))
+            + 2.0)
 
         max_x = total_length / 2
         min_x = - max_x
+
+        fixed_goal = fixed_goal or (max_x - 2.0, 0)
+        # max_y = 2.0 + max(wall_width / 2, bridge_width / 2, fixed_goal[1])
+        # min_y = - (2.0 + min(-wall_width / 2, -bridge_width / 2, fixed_goal[1]))
+        # total_width = max_y - min_y
+
         max_y = total_width / 2
         min_y = - max_y
 
@@ -952,7 +965,7 @@ class Point2DBridgeEnv(Point2DEnv):
             observation_bounds=observation_bounds,
             walls=walls,
             reset_positions=((min_x + 1, 0), ),
-            fixed_goal=(max_x - 1.0, 0),
+            fixed_goal=fixed_goal,
             **kwargs)
 
     def in_water(self, states):
