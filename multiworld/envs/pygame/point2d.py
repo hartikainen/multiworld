@@ -561,6 +561,9 @@ class Point2DEnv(MultitaskEnv, Serializable):
         else:
             raise NotImplementedError()
 
+        if d < self.target_radius:
+            reward += 200.0
+
         return reward
 
     def get_goal(self):
@@ -974,13 +977,24 @@ class Point2DBridgeEnv(Point2DEnv):
 
         return in_water
 
-    def step(self, *args, **kwargs):
-        observation, reward, done, info = super(Point2DBridgeEnv, self).step(
-            *args, **kwargs)
-
+    def step(self, action, *args, **kwargs):
+        observation = self._get_obs()
         if self.in_water(observation['state_observation']):
-            reward = -1000
-            done = True
+            action = np.zeros_like(action)
+            observation, reward, done, info = super(Point2DBridgeEnv, self).step(
+                action, *args, **kwargs)
+            reward = -1.0 * info['distance_to_target']
+            info['in_water'] = True
+            return observation, reward, done, info
+
+        observation, reward, done, info = super(Point2DBridgeEnv, self).step(
+            action, *args, **kwargs)
+
+        info['in_water'] = False
+        if self.in_water(observation['state_observation']):
+            reward = -1.0 * info['distance_to_target']
+            info['in_water'] = True
+            # done = True
 
         return observation, reward, done, info
 
