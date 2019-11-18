@@ -1011,6 +1011,45 @@ class Point2DBridgeEnv(Point2DEnv):
 
         return observation, reward, done, info
 
+class Point2DBridgeRunEnv(Point2DBridgeEnv):
+    def __init__(self, *args, **kwargs):
+        self.quick_init(locals())
+
+        return super(Point2DBridgeRunEnv, self).__init__(
+            *args,
+            wall_width=0,
+            wall_length=0,
+            wall_thickness=0,
+            **kwargs)
+
+    def step(self, action, *args, **kwargs):
+        observation0 = self._get_obs()
+        observation, reward, done, info = super(Point2DBridgeRunEnv, self).step(
+            action, *args, **kwargs)
+
+        past_water = (
+            self.observation_x_bounds[0] + 2 * self.extra_width + self.wall_length + self.bridge_length
+            <= observation['observation'][0]
+        )
+        if past_water:
+            reward = 2.0
+        elif not info['in_water']:
+            xy_velocity = observation['observation'] - observation0['observation']
+            x_velocity = xy_velocity[0]
+            reward = x_velocity
+            try:
+                assert -1.0 <= reward <= 1.0, reward
+            except Exception as e:
+                from pprint import pprint; import ipdb; ipdb.set_trace(context=30)
+                pass
+        elif info['in_water']:
+            reward = 0.0
+        else:
+            from pprint import pprint; import ipdb; ipdb.set_trace(context=30)
+            raise ValueError
+
+        return observation, reward, done, info
+
 
 def Point2DImageWallEnv(imsize=64, *args, **kwargs):
     env = Point2DWallEnv(*args, **kwargs)
