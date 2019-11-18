@@ -894,8 +894,10 @@ class Point2DBridgeEnv(Point2DEnv):
             bridge_length=4.0,
             wall_width=4.0,
             wall_length=0.1,
+            wall_thickness=0.1,
             scale=1.0,
             fixed_goal=None,
+            target_radius=0.5,
             **kwargs,
     ):
 
@@ -911,19 +913,22 @@ class Point2DBridgeEnv(Point2DEnv):
 
         # 8.0 = 2.0 behind the wall + 2.0 between wall and bridge
         # + 4.0 after the bridge.
-        total_length = scale * (bridge_length + wall_length * 2 + 8.0)
+        extra_width = self.extra_width = 10.0
+        assert extra_width >= 2.0
+        total_length = scale * (
+            bridge_length + wall_length * 2 + 2 * extra_width)
         fixed_goal_y = fixed_goal[1] if fixed_goal else 0.0
         total_width = scale * (
-            2.0
+            extra_width
             + max(wall_width, bridge_width, 2 * np.abs(fixed_goal_y))
-            + 2.0)
+            + extra_width)
 
         max_x = total_length / 2
         min_x = - max_x
 
-        fixed_goal = fixed_goal or (max_x - 2.0, 0)
-        # max_y = 2.0 + max(wall_width / 2, bridge_width / 2, fixed_goal[1])
-        # min_y = - (2.0 + min(-wall_width / 2, -bridge_width / 2, fixed_goal[1]))
+        fixed_goal = fixed_goal or (max_x - extra_width / 2 + target_radius, 0)
+        # max_y = extra_width + max(wall_width / 2, bridge_width / 2, fixed_goal[1])
+        # min_y = - (extra_width + min(-wall_width / 2, -bridge_width / 2, fixed_goal[1]))
         # total_width = max_y - min_y
 
         max_y = total_width / 2
@@ -933,29 +938,33 @@ class Point2DBridgeEnv(Point2DEnv):
         x_low, x_high = observation_bounds[:, 0]
         y_low, y_high = observation_bounds[:, 1]
 
-        walls = (
-            VerticalWall(
-                self.ball_radius,
-                min_x + 2.0,
-                -wall_width / 2,
-                wall_width / 2,
-                thickness=0,
-            ),
-        )
+        if wall_thickness <= 0.0 or wall_width <= 0.0 or wall_height <= 0.0:
+            walls = ()
+        else:
+            walls = (
+                VerticalWall(
+                    self.ball_radius,
+                    max_x - extra_width - 0.1,
+                    # min_x + 1.5 - 0.1,
+                    -wall_width / 2,
+                    wall_width / 2,
+                    thickness=wall_thickness,
+                ),
+            )
 
         water_width = (total_width - bridge_width) / 2 # - bridge_width
         water_length = bridge_length
         self.waters = ( # lower-left, upper-right
             (
-                np.array((min_x + 2.0 + wall_length + 2.0, max_y - water_width)),
-                np.array((min_x + 2.0 + wall_length + 2.0 + water_length, max_y + 0.1)),
+                np.array((min_x + wall_length + extra_width, max_y - water_width)),
+                np.array((min_x + wall_length + extra_width + water_length, max_y + 0.1)),
             ),
             (
-                np.array((min_x + 2.0 + wall_length + 2.0, min_y - 0.1)),
-                np.array((min_x + 2.0 + wall_length + 2.0 + water_length, min_y + water_width)),
+                np.array((min_x + wall_length + extra_width, min_y - 0.1)),
+                np.array((min_x + wall_length + extra_width + water_length, min_y + water_width)),
             ),
             # (
-            #     np.array((-2.0, -4.0)),
+            #     np.array((-extra_width, -4.0)),
             #     np.array((3.0, 4.0))
             # ),
         )
