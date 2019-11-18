@@ -104,7 +104,7 @@ class Wall(object, metaclass=abc.ABCMeta):
 
     def handle_collision(self, start_point, end_point):
         trajectory_segment = (start_point, end_point)
-        old_end_point = end_point
+        old_end_point = end_point.copy()
 
         sides = (
             self.top_segment,
@@ -179,6 +179,14 @@ class Segment(object):
         if np.all(determinants[2:] == 0):
             return False
 
+        # TODO(hartikainen): this has a subtle bug where this sometimes evaluates
+        # to False even though it should evaluate to True.
+        # Failing test case:
+        #  s1 = ((7.1, -1.1), (7.1, 1.1))
+        #  s2 = ((7.1, 0.30083603), (7.00543, 0.41730243))
+        #  include_end_points=False
+        #  exclude_overlapping=False
+        #  stop=False
         if ((signs[0] == signs[1] or signs[1] == 0)
             or (signs[2] == signs[3] or np.any(signs[2:] == 0))):
             return False
