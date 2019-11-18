@@ -898,6 +898,8 @@ class Point2DBridgeEnv(Point2DEnv):
             scale=1.0,
             fixed_goal=None,
             target_radius=0.5,
+            extra_width_before=2.0,
+            extra_width_after=2.0,
             **kwargs,
     ):
 
@@ -913,22 +915,26 @@ class Point2DBridgeEnv(Point2DEnv):
 
         # 8.0 = 2.0 behind the wall + 2.0 between wall and bridge
         # + 4.0 after the bridge.
-        extra_width = self.extra_width = 10.0
-        assert extra_width >= 2.0
+        self.extra_width_before = extra_width_before
+        self.extra_width_after = extra_width_after
+
+        assert 2.0 <= extra_width_before
+        assert 2.0 <= extra_width_after
+
         total_length = scale * (
-            bridge_length + wall_length * 2 + 2 * extra_width)
+            bridge_length + wall_length * 2 + extra_width_before + extra_width_after)
         fixed_goal_y = fixed_goal[1] if fixed_goal else 0.0
         total_width = scale * (
-            extra_width
+            extra_width_before
             + max(wall_width, bridge_width, 2 * np.abs(fixed_goal_y))
-            + extra_width)
+            + extra_width_after)
 
         max_x = total_length / 2
         min_x = - max_x
 
-        fixed_goal = fixed_goal or (max_x - extra_width / 2 + target_radius, 0)
-        # max_y = extra_width + max(wall_width / 2, bridge_width / 2, fixed_goal[1])
-        # min_y = - (extra_width + min(-wall_width / 2, -bridge_width / 2, fixed_goal[1]))
+        fixed_goal = fixed_goal or (max_x - extra_width_after / 2, 0)
+        # max_y = 2.0 + max(wall_width / 2, bridge_width / 2, fixed_goal[1])
+        # min_y = - (2.0 + min(-wall_width / 2, -bridge_width / 2, fixed_goal[1]))
         # total_width = max_y - min_y
 
         max_y = total_width / 2
@@ -938,13 +944,14 @@ class Point2DBridgeEnv(Point2DEnv):
         x_low, x_high = observation_bounds[:, 0]
         y_low, y_high = observation_bounds[:, 1]
 
-        if wall_thickness <= 0.0 or wall_width <= 0.0 or wall_height <= 0.0:
+        if wall_thickness <= 0.0 or wall_width <= 0.0 or wall_length <= 0.0:
             walls = ()
         else:
             walls = (
                 VerticalWall(
                     self.ball_radius,
-                    max_x - extra_width - 0.1,
+                    min_x + extra_width_before + bridge_length + 1.0,
+                    # max_x - extra_width_after - 0.1,
                     # min_x + 1.5 - 0.1,
                     -wall_width / 2,
                     wall_width / 2,
@@ -956,12 +963,12 @@ class Point2DBridgeEnv(Point2DEnv):
         water_length = bridge_length
         self.waters = ( # lower-left, upper-right
             (
-                np.array((min_x + wall_length + extra_width, max_y - water_width)),
-                np.array((min_x + wall_length + extra_width + water_length, max_y + 0.1)),
+                np.array((min_x + wall_length + extra_width_before, max_y - water_width)),
+                np.array((min_x + wall_length + extra_width_before + water_length, max_y + 0.1)),
             ),
             (
-                np.array((min_x + wall_length + extra_width, min_y - 0.1)),
-                np.array((min_x + wall_length + extra_width + water_length, min_y + water_width)),
+                np.array((min_x + wall_length + extra_width_before, min_y - 0.1)),
+                np.array((min_x + wall_length + extra_width_before + water_length, min_y + water_width)),
             ),
             # (
             #     np.array((-extra_width, -4.0)),
@@ -1021,7 +1028,11 @@ class Point2DBridgeEnv(Point2DEnv):
         return observation, reward, done, info
 
 class Point2DBridgeRunEnv(Point2DBridgeEnv):
-    def __init__(self, *args, **kwargs):
+    def __init__(self,
+                 *args,
+                 extra_width_before=2.0,
+                 extra_width_after=10.0,
+                 **kwargs):
         self.quick_init(locals())
 
         return super(Point2DBridgeRunEnv, self).__init__(
@@ -1029,6 +1040,8 @@ class Point2DBridgeRunEnv(Point2DBridgeEnv):
             wall_width=0,
             wall_length=0,
             wall_thickness=0,
+            extra_width_before=2.0,
+            extra_width_after=10.0,
             **kwargs)
 
     def step(self, action, *args, **kwargs):
@@ -1037,22 +1050,27 @@ class Point2DBridgeRunEnv(Point2DBridgeEnv):
             action, *args, **kwargs)
 
         past_water = (
-            self.observation_x_bounds[0] + 2 * self.extra_width + self.wall_length + self.bridge_length
+            self.observation_x_bounds[0]
+            + self.extra_width_before
+            + self.wall_length
+            + self.bridge_length
             <= observation['observation'][0]
         )
         if past_water:
-            reward = 2.0
+            reward = 3.0
         elif not info['in_water']:
             xy_velocity = observation['observation'] - observation0['observation']
             x_velocity = xy_velocity[0]
-            reward = x_velocity
+            multiplier = 3.0
+            reward = multiplier * x_velocity
             try:
-                assert -1.0 <= reward <= 1.0, reward
+                assert -1.0 <= reward / multiplier <= 1.0, reward
             except Exception as e:
                 from pprint import pprint; import ipdb; ipdb.set_trace(context=30)
                 pass
         elif info['in_water']:
-            reward = 0.0
+            # reward = -2 * np.log(2)
+            reward = -0.1
         else:
             from pprint import pprint; import ipdb; ipdb.set_trace(context=30)
             raise ValueError
