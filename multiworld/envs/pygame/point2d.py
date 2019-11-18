@@ -996,7 +996,7 @@ class Point2DBridgeEnv(Point2DEnv):
             action = np.zeros_like(action)
             observation, reward, done, info = super(Point2DBridgeEnv, self).step(
                 action, *args, **kwargs)
-            reward = -1.0 * info['distance_to_target']
+            reward = -1.0 * info['distance_to_target'] - 2.0 * np.log(2.0)
             info['in_water'] = True
             return observation, reward, done, info
 
@@ -1005,7 +1005,7 @@ class Point2DBridgeEnv(Point2DEnv):
 
         info['in_water'] = False
         if self.in_water(observation['state_observation']):
-            reward = -1.0 * info['distance_to_target']
+            reward = -1.0 * info['distance_to_target'] - 2.0 * np.log(2.0)
             info['in_water'] = True
             # done = True
 
