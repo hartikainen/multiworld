@@ -402,7 +402,18 @@ class Point2DEnv(MultitaskEnv, Serializable):
         else:
             iteration = int(max(heatmap_iterations) + 1)
 
-        figure, axis = plt.subplots(1, 1)
+        base_size = 6.4
+        x_min, x_max = self.observation_x_bounds
+        y_min, y_max = self.observation_y_bounds
+        width = x_max - x_min
+        height = y_max - y_min
+
+        if width > height:
+            figsize = (base_size, base_size * (height / width))
+        else:
+            figsize = (base_size * (width / height), base_size)
+
+        figure, axis = plt.subplots(1, 1, figsize=figsize)
         axis.set_xlim(self.observation_x_bounds)
         axis.set_ylim(self.observation_y_bounds)
 
