@@ -386,6 +386,64 @@ class Point2DEnv(MultitaskEnv, Serializable):
                 'succeeded_from_left_count': lefts_success,
                 'succeeded_from_right_count': rights_success,
             })
+        elif isinstance(self, Point2DBridgeRunEnv):
+            x, y = np.split(np.concatenate([
+                path['observations']['observation']
+                for path in paths
+            ]), 2, axis=-1)
+
+            bins_per_unit = 5
+            x_bounds = (
+                self.observation_x_bounds[0]
+                + self.extra_width_before
+                + self.wall_length
+                + self.bridge_length,
+                self.observation_x_bounds[1]
+            )
+            y_bounds = tuple(self.observation_y_bounds)
+
+            H, xedges, yedges = np.histogram2d(
+                np.squeeze(x),
+                np.squeeze(y),
+                bins=(
+                    int(np.ptp(x_bounds) * bins_per_unit),
+                    int(np.ptp(y_bounds) * bins_per_unit),
+                ),
+                range=np.array((x_bounds, y_bounds)),
+            )
+
+            support = np.sum(H > 0)  / H.size
+            infos.update({'support': support})
+
+        elif isinstance(self, Point2DPondEnv):
+            x, y = np.split(np.concatenate([
+                path['observations']['observation']
+                for path in paths
+            ]), 2, axis=-1)
+
+            bins_per_unit = 5
+            x_bounds = tuple(self.observation_x_bounds)
+            y_bounds = tuple(self.observation_y_bounds)
+
+            H, xedges, yedges = np.histogram2d(
+                np.squeeze(x),
+                np.squeeze(y),
+                bins=(
+                    int(np.ptp(x_bounds) * bins_per_unit),
+                    int(np.ptp(y_bounds) * bins_per_unit),
+                ),
+                range=np.array((x_bounds, y_bounds)),
+            )
+
+            full_area = (
+                (x_bounds[1] - x_bounds[0]) * (y_bounds[1] - y_bounds[0]))
+            water_area = np.pi * self.pond_radius ** 2 / 4
+            support_of_total_area = (np.sum(H > 0) / H.size)
+            support_of_walkable_area = (
+                support_of_total_area * full_area
+                / (full_area - water_area))
+
+            infos.update({'support': support_of_walkable_area})
 
         log_base_dir = os.getcwd()
         heatmap_dir = os.path.join(log_base_dir, 'heatmap')
