@@ -353,7 +353,8 @@ class Point2DEnv(MultitaskEnv, Serializable):
         infos = {}
 
         if (getattr(self, 'wall_shape', None) != '-'
-            and not isinstance(self, Point2DBridgeEnv)):
+            and not isinstance(self, Point2DBridgeEnv)
+            and not isinstance(self, Point2DPondEnv)):
             return infos
 
         if getattr(self, 'wall_shape', None) == '-':
@@ -451,6 +452,15 @@ class Point2DEnv(MultitaskEnv, Serializable):
         plot_walls(axis, self.walls)
         if hasattr(self, 'waters'):
             plot_waters(axis, self.waters)
+        elif isinstance(self, Point2DPondEnv):
+            pond_circle = mpl.patches.Circle(
+                (0, 0),
+                self.pond_radius,
+                facecolor='blue',
+                edgecolor='blue',
+                fill=True)
+
+            axis.add_patch(pond_circle)
 
         # x, y = np.split(np.concatenate([
         #     path['observations']['observation']
@@ -747,6 +757,9 @@ class Point2DEnv(MultitaskEnv, Serializable):
             rect_location = lower_left
             width, height = (upper_right - lower_left) # + [0, 0.1]
             drawer.draw_rect(rect_location, width, height, (0, 0, 255), thickness=0)
+
+        if isinstance(self, Point2DPondEnv):
+            drawer.draw_solid_circle((0, 0), self.pond_radius, (0, 0, 255))
 
         drawer.render()
         if tick:
@@ -1087,6 +1100,58 @@ class Point2DBridgeRunEnv(Point2DBridgeEnv):
             raise ValueError
 
         return observation, reward, done, info
+
+
+class Point2DPondEnv(Point2DEnv):
+    def __init__(
+            self,
+            ball_radius=0.0,
+            pond_radius=1.0,
+            fixed_goal=None,
+            target_radius=0.5,
+            **kwargs,
+    ):
+        self.quick_init(locals())
+        self.ball_radius = ball_radius
+        self.pond_radius = pond_radius
+
+        total_length = pond_radius + 5
+        min_x, max_x = 0, total_length
+        min_y, max_y = min_x, max_x
+        observation_bounds = np.array(((min_x, min_y), (max_x, max_y)))
+
+        fixed_goal = fixed_goal or (0, pond_radius + 0.5)
+
+        super().__init__(
+            ball_radius=ball_radius,
+            observation_bounds=observation_bounds,
+            walls=(),
+            reset_positions=((pond_radius + 0.5, 0), ),
+            fixed_goal=fixed_goal,
+            **kwargs)
+
+    def step(self, action, *args, **kwargs):
+        observation, reward, done, info = super(Point2DPondEnv, self).step(
+            action, *args, **kwargs)
+
+        info['distance_from_water'] = np.linalg.norm(
+            observation['state_observation'] - np.array((0, 0)), ord=2
+        ) - self.pond_radius
+
+        if self.in_water(observation['state_observation']):
+            reward = -self._max_episode_steps * info['distance_to_target']
+            done = True
+            info['in_water'] = True
+
+        return observation, reward, done, info
+
+    def in_water(self, states):
+        # states = np.atleast_2d(states)
+        pond_center = np.array((0.0, 0.0))
+        distance_from_pond_center = np.linalg.norm(
+            states - pond_center, ord=2)
+
+        return distance_from_pond_center < self.pond_radius
 
 
 def Point2DImageWallEnv(imsize=64, *args, **kwargs):
