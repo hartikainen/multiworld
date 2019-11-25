@@ -1006,10 +1006,13 @@ class Point2DBridgeEnv(Point2DEnv):
         total_length = scale * (
             bridge_length + wall_length * 2 + extra_width_before + extra_width_after)
         fixed_goal_y = fixed_goal[1] if fixed_goal else 0.0
+
         total_width = scale * (
-            extra_width_before
+            2 * extra_width_after
+            # extra_width_before
             + max(wall_width, bridge_width, 2 * np.abs(fixed_goal_y))
-            + extra_width_after)
+            # + extra_width_after
+        )
 
         max_x = total_length / 2
         min_x = - max_x
@@ -1043,7 +1046,7 @@ class Point2DBridgeEnv(Point2DEnv):
 
         water_width = (total_width - bridge_width) / 2 # - bridge_width
         water_length = bridge_length
-        self.waters = ( # lower-left, upper-right
+        self.waters = (  # lower-left, upper-right
             (
                 np.array((min_x + wall_length + extra_width_before, max_y - water_width)),
                 np.array((min_x + wall_length + extra_width_before + water_length, max_y + 0.1)),
@@ -1122,8 +1125,8 @@ class Point2DBridgeRunEnv(Point2DBridgeEnv):
             wall_width=0,
             wall_length=0,
             wall_thickness=0,
-            extra_width_before=2.0,
-            extra_width_after=10.0,
+            extra_width_before=extra_width_before,
+            extra_width_after=extra_width_after,
             **kwargs)
 
     def step(self, action, *args, **kwargs):
