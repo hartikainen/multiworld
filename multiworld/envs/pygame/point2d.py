@@ -392,7 +392,7 @@ class Point2DEnv(MultitaskEnv, Serializable):
                 for path in paths
             ]), 2, axis=-1)
 
-            bins_per_unit = 5
+            bins_per_unit = 1
             x_bounds = (
                 self.observation_x_bounds[0]
                 + self.extra_width_before
@@ -401,6 +401,26 @@ class Point2DEnv(MultitaskEnv, Serializable):
                 self.observation_x_bounds[1]
             )
             y_bounds = tuple(self.observation_y_bounds)
+
+            where_past_bridge = np.flatnonzero(np.logical_and.reduce((
+                x_bounds[0] <= x,
+                x <= x_bounds[1],
+                y_bounds[0] <= y,
+                y <= y_bounds[1])))
+
+            if 0 < where_past_bridge.size:
+                min_x = np.min(x[where_past_bridge])
+                max_x = np.max(x[where_past_bridge])
+                min_y = np.min(y[where_past_bridge])
+                max_y = np.max(y[where_past_bridge])
+                ptp_x = max_x - min_x
+                ptp_y = max_y - min_y
+                rectangle_area = ptp_x * ptp_y
+                rectangle_support = rectangle_area / (
+                    np.ptp(x_bounds) * np.ptp(y_bounds))
+            else:
+                min_x = max_x = min_y = max_y = ptp_x = ptp_y = 0.0
+                rectangle_area = rectangle_support = 0.0
 
             H, xedges, yedges = np.histogram2d(
                 np.squeeze(x),
@@ -412,8 +432,18 @@ class Point2DEnv(MultitaskEnv, Serializable):
                 range=np.array((x_bounds, y_bounds)),
             )
 
-            support = np.sum(H > 0)  / H.size
-            infos.update({'support': support})
+            histogram_support = np.sum(H > 0) / H.size
+            infos.update({
+                'after-bridge-min_x': min_x,
+                'after-bridge-max_x': max_x,
+                'after-bridge-min_y': min_y,
+                'after-bridge-max_y': max_y,
+                'after-bridge-ptp_x': ptp_x,
+                'after-bridge-ptp_y': ptp_y,
+                'after-bridge-histogram_support': histogram_support,
+                'after-bridge-rectangle_area': rectangle_area,
+                'after-bridge-rectangle_support': rectangle_support,
+            })
 
         elif isinstance(self, Point2DPondEnv):
             x, y = np.split(np.concatenate([
