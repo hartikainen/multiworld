@@ -1,5 +1,6 @@
 from collections import OrderedDict
 import glob
+import itertools
 import os
 import re
 import logging
@@ -387,10 +388,13 @@ class Point2DEnv(MultitaskEnv, Serializable):
                 'succeeded_from_right_count': rights_success,
             })
         elif isinstance(self, Point2DBridgeRunEnv):
-            x, y = np.split(np.concatenate([
-                path['observations']['observation']
+            x, y = np.split(np.concatenate(tuple(itertools.chain(*[
+                [
+                    path['observations']['observation'],
+                    path['next_observations']['observation'][[-1]]
+                ]
                 for path in paths
-            ]), 2, axis=-1)
+            ]))), 2, axis=-1)
 
             bins_per_unit = 1
             x_bounds = (
@@ -446,10 +450,13 @@ class Point2DEnv(MultitaskEnv, Serializable):
             })
 
         elif isinstance(self, Point2DPondEnv):
-            x, y = np.split(np.concatenate([
-                path['observations']['observation']
+            x, y = np.split(np.concatenate(tuple(itertools.chain(*[
+                [
+                    path['observations']['observation'],
+                    path['next_observations']['observation'][[-1]]
+                ]
                 for path in paths
-            ]), 2, axis=-1)
+            ]))), 2, axis=-1)
 
             bins_per_unit = 5
             x_bounds = tuple(self.observation_x_bounds)
@@ -508,7 +515,10 @@ class Point2DEnv(MultitaskEnv, Serializable):
 
         color_map = plt.cm.get_cmap('PuBuGn', len(paths))
         for i, path in enumerate(paths):
-            positions = path['observations']['observation']
+            positions = np.concatenate((
+                path['observations']['observation'],
+                path['next_observations']['observation'][[-1]],
+            ), axis=0)
             color = color_map(i)
             axis.plot(
                 positions[:, 0],
