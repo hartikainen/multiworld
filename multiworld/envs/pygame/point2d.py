@@ -611,6 +611,8 @@ class Point2DEnv(MultitaskEnv, Serializable):
 
         # plt.colorbar(image, ax=axis)
 
+        axis.grid(True, linestyle='-', linewidth=0.2)
+
         heatmap_path = os.path.join(
             heatmap_dir,
             f'{evaluation_type}-iteration-{iteration:05}-heatmap.png')
