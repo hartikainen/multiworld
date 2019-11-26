@@ -1164,14 +1164,25 @@ class Point2DBridgeRunEnv(Point2DBridgeEnv):
         observation, reward, done, info = super(Point2DBridgeRunEnv, self).step(
             action, *args, **kwargs)
 
-        past_water = (
-            self.observation_x_bounds[0]
-            + self.extra_width_before
-            + self.wall_length
-            + self.bridge_length
-            <= observation['observation'][0]
+        before_water = (
+            observation['observation'][0]
+            <= (
+                self.observation_x_bounds[0]
+                + self.extra_width_before
+                + self.wall_length
+            )
         )
-        if past_water:
+        past_water = (
+            (
+                self.observation_x_bounds[0]
+                + self.extra_width_before
+                + self.wall_length
+                + self.bridge_length
+            ) <= observation['observation'][0]
+        )
+        if before_water:
+            reward = -0.15
+        elif past_water:
             reward = 3.0
         elif not info['in_water']:
             xy_velocity = observation['observation'] - observation0['observation']
