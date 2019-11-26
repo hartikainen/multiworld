@@ -422,9 +422,12 @@ class Point2DEnv(MultitaskEnv, Serializable):
                 rectangle_area = ptp_x * ptp_y
                 rectangle_support = rectangle_area / (
                     np.ptp(x_bounds) * np.ptp(y_bounds))
+                rectangle_x_support = ptp_x / np.ptp(x_bounds)
+                rectangle_y_support = ptp_y / np.ptp(y_bounds)
             else:
                 min_x = max_x = min_y = max_y = ptp_x = ptp_y = 0.0
                 rectangle_area = rectangle_support = 0.0
+                rectangle_x_support = rectangle_y_support = 0.0
 
             H, xedges, yedges = np.histogram2d(
                 np.squeeze(x),
@@ -437,6 +440,11 @@ class Point2DEnv(MultitaskEnv, Serializable):
             )
 
             histogram_support = np.sum(H > 0) / H.size
+            H_x = np.sum(H, axis=1)
+            H_y = np.sum(H, axis=0)
+            histogram_x_support = np.sum(H_x > 0) / H_x.size
+            histogram_y_support = np.sum(H_y > 0) / H_y.size
+
             infos.update({
                 'after-bridge-min_x': min_x,
                 'after-bridge-max_x': max_x,
@@ -445,8 +453,12 @@ class Point2DEnv(MultitaskEnv, Serializable):
                 'after-bridge-ptp_x': ptp_x,
                 'after-bridge-ptp_y': ptp_y,
                 'after-bridge-histogram_support': histogram_support,
+                'after-bridge-histogram_x_support': histogram_x_support,
+                'after-bridge-histogram_y_support': histogram_y_support,
                 'after-bridge-rectangle_area': rectangle_area,
                 'after-bridge-rectangle_support': rectangle_support,
+                'after-bridge-rectangle_x_support': rectangle_x_support,
+                'after-bridge-rectangle_y_support': rectangle_y_support,
             })
 
         elif isinstance(self, Point2DPondEnv):
