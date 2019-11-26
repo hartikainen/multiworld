@@ -1257,20 +1257,23 @@ class Point2DPondEnv(Point2DEnv):
         self.ball_radius = ball_radius
         self.pond_radius = pond_radius
 
-        total_length = 2 * pond_radius + 44  # 44 = 2 * (max_path_length + 2)
-        max_x = total_length / 2
-        min_x = -max_x
-        min_y, max_y = min_x, max_x
+        distance_from_pond = 0.1
+
+        reset_position = (pond_radius + distance_from_pond, 0)
+        # total_length = 2 * pond_radius + 44  # 44 = 2 * (max_path_length + 2)
+        max_x = pond_radius + distance_from_pond + 22  # 22 = max_path_length + 2
+        min_x = - (22 - reset_position[0])
+        max_y = max(22, 2 * (pond_radius + 2 * distance_from_pond))
+        min_y = -max_y
         observation_bounds = np.array(((min_x, min_y), (max_x, max_y)))
 
-        fixed_goal = fixed_goal or (
-            0, pond_radius + max(1.0, 0.1 * pond_radius))
+        fixed_goal = fixed_goal or (0, pond_radius + distance_from_pond)
 
         super().__init__(
             ball_radius=ball_radius,
             observation_bounds=observation_bounds,
             walls=(),
-            reset_positions=((pond_radius + 0.5, 0), ),
+            reset_positions=(reset_position, ),
             fixed_goal=fixed_goal,
             **kwargs)
 
