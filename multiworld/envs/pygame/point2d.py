@@ -261,12 +261,12 @@ class Point2DEnv(MultitaskEnv, Serializable):
         self.drawer = None
         self.render_drawer = None
 
-        self.initialize_grid_graph()
+        # self.initialize_grid_graph()
 
-        self.optimal_policy = OptimalPoint2DEnvPolicy(
-            goal=self._current_goal,
-            graph=self.grid_graph,
-            all_pairs_shortest_paths=self.all_pairs_shortest_paths)
+        # self.optimal_policy = OptimalPoint2DEnvPolicy(
+        #     goal=self._current_goal,
+        #     graph=self.grid_graph,
+        #     all_pairs_shortest_paths=self.all_pairs_shortest_paths)
 
     @property
     def _current_goal(self):
