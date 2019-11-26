@@ -470,9 +470,9 @@ class Point2DEnv(MultitaskEnv, Serializable):
                 for path in paths
             ]))), 2, axis=-1)
 
-            bins_per_unit = 5
-            x_bounds = tuple(self.observation_x_bounds)
-            y_bounds = tuple(self.observation_y_bounds)
+            bins_per_unit = 2
+            x_bounds = (-2.0, self._reset_positions[0][0] + 2.0)  # tuple(self.observation_x_bounds)
+            y_bounds = (-2.0, self.fixed_goal[1] + 2.0)  # tuple(self.observation_y_bounds)
 
             H, xedges, yedges = np.histogram2d(
                 np.squeeze(x),
@@ -492,7 +492,21 @@ class Point2DEnv(MultitaskEnv, Serializable):
                 support_of_total_area * full_area
                 / (full_area - water_area))
 
-            infos.update({'support': support_of_walkable_area})
+            infos.update({'support-1': support_of_walkable_area})
+
+            X, Y = np.meshgrid(xedges[:-1], yedges[:-1])
+            XY = np.concatenate((X[..., None], Y[..., None]), axis=-1)
+
+            valid_margin = np.sqrt(2 * (1.0 / bins_per_unit) ** 2)
+            valid_bins = np.logical_and(
+                (self.pond_radius - valid_margin) < np.linalg.norm(XY, ord=2, axis=2),
+                np.linalg.norm(XY, ord=2, axis=2) < (self.pond_radius + 5.0),
+            )
+
+            support_of_valid_bins = (np.sum(H[valid_bins] > 0) / (
+                H[valid_bins].size))
+
+            infos.update({'support-2': support_of_valid_bins})
 
         log_base_dir = os.getcwd()
         heatmap_dir = os.path.join(log_base_dir, 'heatmap')
