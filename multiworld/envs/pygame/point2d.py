@@ -1280,8 +1280,15 @@ class Point2DPondEnv(Point2DEnv):
             observation['state_observation']
         ) - self.pond_radius
 
+        # EPS = 1e-2
+        # reward = 10.0 - 3.0 * np.log(info['distance_to_target'] + EPS)
+
+        # Add a constant to discourage terminating to the water.
+        max_distance_to_target = np.linalg.norm(
+            self.fixed_goal - self._reset_positions[0], ord=1)
+        reward = 10 * (max_distance_to_target - info['distance_to_target'])
         if self.in_water(observation['state_observation']):
-            reward = -self._max_episode_steps * info['distance_to_target']
+            reward = 0.0
             done = True
             info['in_water'] = True
 
