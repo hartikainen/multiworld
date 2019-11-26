@@ -568,9 +568,25 @@ class Point2DEnv(MultitaskEnv, Serializable):
                 self.pond_radius,
                 facecolor='blue',
                 edgecolor='blue',
-                fill=True)
+                fill=True,
+            )
 
             axis.add_patch(pond_circle)
+
+        # nx = ny = 500
+
+        # x = np.linspace(*x_bounds, nx)
+        # y = np.linspace(*y_bounds, ny)
+        # X, Y = np.meshgrid(x, y)
+        # xy = np.stack((X, Y), axis=-1).reshape(-1, 2)
+
+        # axis.scatter(
+        #     xy[:, 0],
+        #     xy[:, 1],
+        #     c=np.where(self.in_waters(xy), 'red', 'green').ravel(),
+        #     marker='.',
+        #     s=1.0
+        # )
 
         # x, y = np.split(np.concatenate([
         #     path['observations']['observation']
@@ -1239,12 +1255,14 @@ class Point2DPondEnv(Point2DEnv):
         self.ball_radius = ball_radius
         self.pond_radius = pond_radius
 
-        total_length = pond_radius + 5
-        min_x, max_x = 0, total_length
+        total_length = 2 * pond_radius + 44  # 44 = 2 * (max_path_length + 2)
+        max_x = total_length / 2
+        min_x = -max_x
         min_y, max_y = min_x, max_x
         observation_bounds = np.array(((min_x, min_y), (max_x, max_y)))
 
-        fixed_goal = fixed_goal or (0, pond_radius + 0.5)
+        fixed_goal = fixed_goal or (
+            0, pond_radius + max(1.0, 0.1 * pond_radius))
 
         super().__init__(
             ball_radius=ball_radius,
@@ -1258,8 +1276,8 @@ class Point2DPondEnv(Point2DEnv):
         observation, reward, done, info = super(Point2DPondEnv, self).step(
             action, *args, **kwargs)
 
-        info['distance_from_water'] = np.linalg.norm(
-            observation['state_observation'] - np.array((0, 0)), ord=2
+        info['distance_from_water'] = self.distance_from_pond_center(
+            observation['state_observation']
         ) - self.pond_radius
 
         if self.in_water(observation['state_observation']):
@@ -1269,13 +1287,25 @@ class Point2DPondEnv(Point2DEnv):
 
         return observation, reward, done, info
 
-    def in_water(self, states):
-        # states = np.atleast_2d(states)
+    def distances_from_pond_center(self, states):
+        states = np.atleast_2d(states)
         pond_center = np.array((0.0, 0.0))
-        distance_from_pond_center = np.linalg.norm(
-            states - pond_center, ord=2)
+        distances_from_pond_center = np.linalg.norm(
+            states - pond_center, ord=2, keepdims=True, axis=1)
+        return distances_from_pond_center
 
-        return distance_from_pond_center < self.pond_radius
+    def distance_from_pond_center(self, state):
+        distance_from_pond_center = self.distances_from_pond_center(
+            np.atleast_2d(state))[0]
+        return distance_from_pond_center
+
+    def in_waters(self, states):
+        in_waters = self.distances_from_pond_center(states) < self.pond_radius
+        return in_waters
+
+    def in_water(self, state):
+        in_water = self.in_waters(np.atleast_2d(state))[0]
+        return in_water
 
 
 def Point2DImageWallEnv(imsize=64, *args, **kwargs):
