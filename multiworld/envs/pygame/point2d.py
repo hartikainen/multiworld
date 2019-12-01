@@ -589,10 +589,27 @@ class Point2DEnv(MultitaskEnv, Serializable):
 
         # nx = ny = 500
 
-        # x = np.linspace(*x_bounds, nx)
-        # y = np.linspace(*y_bounds, ny)
+        # x = np.linspace(*tuple(self.observation_x_bounds), nx)
+        # y = np.linspace(*tuple(self.observation_y_bounds), ny)
         # X, Y = np.meshgrid(x, y)
+
+        # # XY = np.stack((X, Y), axis=-1)
+        # # actions = np.tile((1.0, 0.0), (*XY.shape[:-1], 1))
+        # # observations = {'observation': XY, 'state_observation': XY}
+
         # xy = np.stack((X, Y), axis=-1).reshape(-1, 2)
+        # actions = np.tile((1.0, 0.0), (*xy.shape[:-1], 1))
+        # observations = {'observation': xy, 'state_observation': xy}
+
+        # rewards = self.compute_rewards(actions, observations)
+
+        # c = axis.contourf(
+        #     x,
+        #     y,
+        #     rewards[..., 0].reshape(nx, ny),
+        #     cmap='RdBu')
+
+        # figure.colorbar(c, ax=axis)
 
         # axis.scatter(
         #     xy[:, 0],
