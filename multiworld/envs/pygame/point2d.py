@@ -1083,7 +1083,7 @@ class Point2DBridgeEnv(Point2DEnv):
         self.extra_width_before = extra_width_before
         self.extra_width_after = extra_width_after
 
-        assert 2.0 <= extra_width_before
+        # assert 2.0 <= extra_width_before
         assert 2.0 <= extra_width_after
 
         total_length = scale * (
@@ -1199,10 +1199,11 @@ class Point2DBridgeEnv(Point2DEnv):
 
         return observation, reward, done, info
 
+
 class Point2DBridgeRunEnv(Point2DBridgeEnv):
     def __init__(self,
                  *args,
-                 extra_width_before=2.0,
+                 extra_width_before=0.0,
                  extra_width_after=10.0,
                  **kwargs):
         self.quick_init(locals())
