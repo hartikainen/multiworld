@@ -636,7 +636,6 @@ class Point2DEnv(MultitaskEnv, Serializable):
 
         return infos
 
-
     def handle_collisions(self, previous_positions, new_positions):
         new_positions = np.array([
             self.handle_collision(previous_position, new_position)
@@ -1153,16 +1152,21 @@ class Point2DBridgeEnv(Point2DEnv):
             fixed_goal=fixed_goal,
             **kwargs)
 
-    def in_water(self, states):
+    def in_waters(self, states):
         states = np.atleast_2d(states)
 
-        lower_lefts, upper_rights = np.swapaxes(self.waters, 1, 0)
+        lower_lefts, upper_rights = np.split(np.array(self.waters), 2, axis=1)
         in_waters = np.all(
             np.logical_and(lower_lefts <= states, states <= upper_rights),
-            axis=1)
+            axis=2,
+        ).T
 
-        in_water = np.any(in_waters)
+        in_any_waters = np.any(in_waters, axis=1, keepdims=True)
+        return in_any_waters
 
+    def in_water(self, state):
+        in_water = self.in_waters(np.atleast_2d(state))[0]
+        states = np.atleast_2d(state)
         expected_value = False
         for lower_left, upper_right in self.waters:
             in_water_index = np.all(
@@ -1172,7 +1176,6 @@ class Point2DBridgeEnv(Point2DEnv):
                 expected_value = True
 
         assert in_water == expected_value, (in_water, expected_value)
-
         return in_water
 
     def step(self, action, *args, **kwargs):
@@ -1213,49 +1216,55 @@ class Point2DBridgeRunEnv(Point2DBridgeEnv):
             extra_width_after=extra_width_after,
             **kwargs)
 
-    def step(self, action, *args, **kwargs):
-        observation0 = self._get_obs()
-        observation, reward, done, info = super(Point2DBridgeRunEnv, self).step(
-            action, *args, **kwargs)
-
-        before_water = (
-            observation['observation'][0]
-            <= (
+    def compute_rewards(self, actions, observations):
+        before_water_index = (
+            observations['observation'][..., 0]
+            < (
                 self.observation_x_bounds[0]
                 + self.extra_width_before
                 + self.wall_length
             )
         )
-        past_water = (
+        after_water_index = (
             (
                 self.observation_x_bounds[0]
                 + self.extra_width_before
                 + self.wall_length
                 + self.bridge_length
-            ) <= observation['observation'][0]
+            ) < observations['observation'][..., 0]
         )
-        if before_water:
-            reward = -0.15
-        elif past_water:
-            reward = 3.0
-        elif not info['in_water']:
-            xy_velocity = observation['observation'] - observation0['observation']
-            x_velocity = xy_velocity[0]
-            multiplier = 3.0
-            reward = multiplier * x_velocity
-            try:
-                assert -1.0 <= reward / multiplier <= 1.0, reward
-            except Exception as e:
-                from pprint import pprint; import ipdb; ipdb.set_trace(context=30)
-                pass
-        elif info['in_water']:
-            # reward = -2 * np.log(2)
-            reward = -0.1
-        else:
-            from pprint import pprint; import ipdb; ipdb.set_trace(context=30)
-            raise ValueError
+        in_water_index = self.in_waters(
+            observations['state_observation'])[..., 0]
+        on_bridge_index = ~np.logical_or.reduce((
+            before_water_index, after_water_index, in_water_index))
 
-        return observation, reward, done, info
+        assert np.all(np.sum((
+            before_water_index,
+            after_water_index,
+            in_water_index,
+            on_bridge_index
+        ), axis=0) == 1)
+
+        rewards = np.full((*actions.shape[:-1], 1), np.nan)
+
+        # where_before_waters = np.where(before_waters)
+        assert np.all(np.isnan(rewards[before_water_index]))
+        rewards[before_water_index] = -0.15
+
+        # where_after_waters = np.where(after_waters)
+        assert np.all(np.isnan(rewards[after_water_index]))
+        rewards[after_water_index] = 3.0
+
+        assert np.all(np.isnan(rewards[in_water_index]))
+        rewards[in_water_index] = -0.1
+        # rewards[in_water_index] = -2 * np.log(2)
+
+        assert np.all(np.isnan(rewards[on_bridge_index]))
+        rewards[on_bridge_index] = 2.0 * actions[on_bridge_index, 0:1]
+
+        assert not np.any(np.isnan(rewards))
+
+        return rewards
 
 
 class Point2DPondEnv(Point2DEnv):
@@ -1291,6 +1300,28 @@ class Point2DPondEnv(Point2DEnv):
             fixed_goal=fixed_goal,
             **kwargs)
 
+    def compute_rewards(self, actions, observations):
+        distances_to_target = np.linalg.norm(
+            observations['state_observation'] - self._target_position,
+            ord=2,
+            keepdims=True,
+            axis=-1)
+
+        # Add a constant to discourage terminating to the water.
+        max_distance_to_target = np.linalg.norm(
+            self.fixed_goal - self._reset_positions[0], ord=1)
+
+        # EPS = 1e-2
+        # rewards = 10.0 - 3.0 * np.log(distances_to_target + EPS)
+
+        rewards = 10 * (max_distance_to_target - distances_to_target)
+
+        in_water_index = self.in_waters(
+            observations['state_observation'])[..., 0]
+        rewards[in_water_index] = 0.0
+
+        return rewards
+
     def step(self, action, *args, **kwargs):
         observation, reward, done, info = super(Point2DPondEnv, self).step(
             action, *args, **kwargs)
@@ -1299,17 +1330,9 @@ class Point2DPondEnv(Point2DEnv):
             observation['state_observation']
         ) - self.pond_radius
 
-        # EPS = 1e-2
-        # reward = 10.0 - 3.0 * np.log(info['distance_to_target'] + EPS)
-
-        # Add a constant to discourage terminating to the water.
-        max_distance_to_target = np.linalg.norm(
-            self.fixed_goal - self._reset_positions[0], ord=1)
-        reward = 10 * (max_distance_to_target - info['distance_to_target'])
-        if self.in_water(observation['state_observation']):
-            reward = 0.0
-            done = True
-            info['in_water'] = True
+        in_water = self.in_water(observation['state_observation']).item()
+        info['in_water'] = in_water
+        done = in_water
 
         return observation, reward, done, info
 
@@ -1317,7 +1340,7 @@ class Point2DPondEnv(Point2DEnv):
         states = np.atleast_2d(states)
         pond_center = np.array((0.0, 0.0))
         distances_from_pond_center = np.linalg.norm(
-            states - pond_center, ord=2, keepdims=True, axis=1)
+            states - pond_center, ord=2, keepdims=True, axis=-1)
         return distances_from_pond_center
 
     def distance_from_pond_center(self, state):
