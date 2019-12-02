@@ -1169,6 +1169,28 @@ class Point2DBridgeEnv(Point2DEnv):
             fixed_goal=fixed_goal,
             **kwargs)
 
+    def compute_rewards(self, actions, observations):
+        in_water_index = self.in_waters(
+            observations['state_observation'])[..., 0]
+
+        distances_to_target = np.linalg.norm(
+            observations['state_observation'] - self._target_position,
+            ord=2,
+            keepdims=True,
+            axis=-1)
+
+        rewards = np.full((*actions.shape[:-1], 1), np.nan)
+        rewards[in_water_index] = - 2.0 * np.log(2.0)
+
+        max_distance_to_target = np.linalg.norm(
+            self.fixed_goal - self._reset_positions[0], ord=1)
+        rewards[~in_water_index] = (
+            max_distance_to_target - distances_to_target[~in_water_index])
+
+        assert not np.any(np.isnan(rewards))
+
+        return rewards
+
     def in_waters(self, states):
         states = np.atleast_2d(states)
 
@@ -1196,23 +1218,12 @@ class Point2DBridgeEnv(Point2DEnv):
         return in_water
 
     def step(self, action, *args, **kwargs):
-        observation = self._get_obs()
-        if self.in_water(observation['state_observation']):
-            action = np.zeros_like(action)
-            observation, reward, done, info = super(Point2DBridgeEnv, self).step(
-                action, *args, **kwargs)
-            reward = -1.0 * info['distance_to_target'] - 2.0 * np.log(2.0)
-            info['in_water'] = True
-            return observation, reward, done, info
-
         observation, reward, done, info = super(Point2DBridgeEnv, self).step(
             action, *args, **kwargs)
 
-        info['in_water'] = False
-        if self.in_water(observation['state_observation']):
-            reward = -1.0 * info['distance_to_target'] - 2.0 * np.log(2.0)
-            info['in_water'] = True
-            # done = True
+        in_water = self.in_water(observation['state_observation']).item()
+        info['in_water'] = in_water
+        done = in_water
 
         return observation, reward, done, info
 
