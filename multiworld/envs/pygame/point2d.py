@@ -1218,12 +1218,15 @@ class Point2DBridgeEnv(Point2DEnv):
         return in_water
 
     def step(self, action, *args, **kwargs):
+        observation = self._get_obs()
+        if self.in_water(observation['state_observation']).item():
+            action = np.zeros_like(action)
         observation, reward, done, info = super(Point2DBridgeEnv, self).step(
             action, *args, **kwargs)
 
         in_water = self.in_water(observation['state_observation']).item()
         info['in_water'] = in_water
-        done = in_water
+        done = False
 
         return observation, reward, done, info
 
@@ -1285,8 +1288,8 @@ class Point2DBridgeRunEnv(Point2DBridgeEnv):
         rewards[after_water_index] = 3.0
 
         assert np.all(np.isnan(rewards[in_water_index]))
-        rewards[in_water_index] = -0.1
-        # rewards[in_water_index] = -2 * np.log(2)
+        rewards[in_water_index] = -2 * np.log(2)
+        # rewards[in_water_index] = -0.1
 
         assert np.all(np.isnan(rewards[on_bridge_index]))
         rewards[on_bridge_index] = 2.0 * actions[on_bridge_index, 0:1]
