@@ -1274,27 +1274,38 @@ class Point2DBridgeRunEnv(Point2DBridgeEnv):
             before_water_index,
             after_water_index,
             in_water_index,
-            on_bridge_index
-        ), axis=0) == 1)
+            on_bridge_index,
+        ), axis=0) == 1), (
+            actions,
+            observations,
+            before_water_index,
+            after_water_index,
+            in_water_index,
+            on_bridge_index,
+        )
 
         rewards = np.full((*actions.shape[:-1], 1), np.nan)
 
         # where_before_waters = np.where(before_waters)
-        assert np.all(np.isnan(rewards[before_water_index]))
+        assert np.all(np.isnan(rewards[before_water_index])), (
+            actions, observations, before_water_index)
         rewards[before_water_index] = -0.15
 
         # where_after_waters = np.where(after_waters)
-        assert np.all(np.isnan(rewards[after_water_index]))
+        assert np.all(np.isnan(rewards[after_water_index])), (
+            actions, observations, after_water_index)
         rewards[after_water_index] = 3.0
 
-        assert np.all(np.isnan(rewards[in_water_index]))
-        rewards[in_water_index] = -2 * np.log(2)
+        assert np.all(np.isnan(rewards[in_water_index])), (
+            actions, observations, in_water_index)
+        rewards[in_water_index] = -0.1  # -2 * np.log(2)
         # rewards[in_water_index] = -0.1
 
-        assert np.all(np.isnan(rewards[on_bridge_index]))
+        assert np.all(np.isnan(rewards[on_bridge_index])), (
+            actions, observations, on_bridge_index)
         rewards[on_bridge_index] = 2.0 * actions[on_bridge_index, 0:1]
 
-        assert not np.any(np.isnan(rewards))
+        assert not np.any(np.isnan(rewards)), (actions, observations, rewards)
 
         return rewards
 
