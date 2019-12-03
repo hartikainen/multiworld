@@ -1392,7 +1392,7 @@ class Point2DPondEnv(Point2DEnv):
         return distance_from_pond_center
 
     def in_waters(self, states):
-        in_waters = self.distances_from_pond_center(states) < self.pond_radius
+        in_waters = self.distances_from_pond_center(states) <= self.pond_radius
         return in_waters
 
     def in_water(self, state):
