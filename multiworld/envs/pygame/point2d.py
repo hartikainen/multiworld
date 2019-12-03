@@ -1226,7 +1226,7 @@ class Point2DBridgeEnv(Point2DEnv):
 
         in_water = self.in_water(observation['state_observation']).item()
         info['in_water'] = in_water
-        done = False
+        done = in_water
 
         return observation, reward, done, info
 
