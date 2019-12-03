@@ -396,7 +396,7 @@ class Point2DEnv(MultitaskEnv, Serializable):
                 for path in paths
             ]))), 2, axis=-1)
 
-            bins_per_unit = 1
+            bins_per_unit = 10
             x_bounds = (
                 self.observation_x_bounds[0]
                 + self.extra_width_before
@@ -470,7 +470,7 @@ class Point2DEnv(MultitaskEnv, Serializable):
                 for path in paths
             ]))), 2, axis=-1)
 
-            bins_per_unit = 2
+            bins_per_unit = 10
             x_bounds = (-2.0, self._reset_positions[0][0] + 2.0)  # tuple(self.observation_x_bounds)
             y_bounds = (-2.0, self.fixed_goal[1] + 2.0)  # tuple(self.observation_y_bounds)
 
