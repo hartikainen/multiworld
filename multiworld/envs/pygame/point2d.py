@@ -439,6 +439,19 @@ class Point2DEnv(MultitaskEnv, Serializable):
                 range=np.array((x_bounds, y_bounds)),
             )
 
+            X, Y = np.meshgrid(xedges[:-1], yedges[:-1], indexing='ij')
+            XY = np.stack((X, Y), axis=-1)
+
+            valid_margin = np.sqrt(2 * (1.0 / bins_per_unit) ** 2)
+            valid_bins = np.logical_and(
+                0 <= XY[..., 0] - x_bounds[0],
+                np.linalg.norm(XY - np.array((x_bounds[0], 0.0)), ord=2, axis=2)
+                < np.ptp(x_bounds) / 2 + valid_margin
+            )
+
+            support_of_circle_bins = (0 < np.sum(H[valid_bins]) / (
+                H[valid_bins].size))
+
             histogram_support = np.sum(H > 0) / H.size
             H_x = np.sum(H, axis=1)
             H_y = np.sum(H, axis=0)
@@ -452,6 +465,7 @@ class Point2DEnv(MultitaskEnv, Serializable):
                 'after-bridge-max_y': max_y,
                 'after-bridge-ptp_x': ptp_x,
                 'after-bridge-ptp_y': ptp_y,
+                'after-bridge-circle-support': support_of_circle_bins,
                 'after-bridge-histogram_support': histogram_support,
                 'after-bridge-histogram_x_support': histogram_x_support,
                 'after-bridge-histogram_y_support': histogram_y_support,
