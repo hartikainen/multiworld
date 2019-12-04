@@ -484,9 +484,10 @@ class Point2DEnv(MultitaskEnv, Serializable):
                 for path in paths
             ]))), 2, axis=-1)
 
+            bound_radius = 2.0
             bins_per_unit = 2
-            x_bounds = (-2.0, self._reset_positions[0][0] + 2.0)  # tuple(self.observation_x_bounds)
-            y_bounds = (-2.0, self.fixed_goal[1] + 2.0)  # tuple(self.observation_y_bounds)
+            x_bounds = (-2.0, self._reset_positions[0][0] + bound_radius)  # tuple(self.observation_x_bounds)
+            y_bounds = (-2.0, self.fixed_goal[1] + bound_radius)  # tuple(self.observation_y_bounds)
 
             H, xedges, yedges = np.histogram2d(
                 np.squeeze(x),
@@ -512,11 +513,13 @@ class Point2DEnv(MultitaskEnv, Serializable):
             XY = np.stack((X, Y), axis=-1)
 
             valid_margin = np.sqrt(2 * (1.0 / bins_per_unit) ** 2)
-            valid_bins = np.logical_and(
+            valid_bins = np.logical_and.reduce((
                 (self.pond_radius - valid_margin)
-                <= np.linalg.norm(XY, ord=2, axis=2),
-                np.linalg.norm(XY, ord=2, axis=2) < (self.pond_radius + 5.0),
-            )
+                <= np.linalg.norm(XY, ord=2, axis=-1),
+                np.linalg.norm(XY, ord=2, axis=-1) < (self.pond_radius + 2.0),
+                -0.5 < XY[..., 0],
+                -0.5 < XY[..., 1],
+            ))
 
             support_of_valid_bins = (np.sum(H[valid_bins] > 0) / (
                 H[valid_bins].size))
