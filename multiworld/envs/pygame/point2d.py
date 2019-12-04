@@ -494,12 +494,13 @@ class Point2DEnv(MultitaskEnv, Serializable):
 
             infos.update({'support-1': support_of_walkable_area})
 
-            X, Y = np.meshgrid(xedges[:-1], yedges[:-1])
-            XY = np.concatenate((X[..., None], Y[..., None]), axis=-1)
+            X, Y = np.meshgrid(xedges[:-1], yedges[:-1], indexing='ij')
+            XY = np.stack((X, Y), axis=-1)
 
             valid_margin = np.sqrt(2 * (1.0 / bins_per_unit) ** 2)
             valid_bins = np.logical_and(
-                (self.pond_radius - valid_margin) < np.linalg.norm(XY, ord=2, axis=2),
+                (self.pond_radius - valid_margin)
+                <= np.linalg.norm(XY, ord=2, axis=2),
                 np.linalg.norm(XY, ord=2, axis=2) < (self.pond_radius + 5.0),
             )
 
