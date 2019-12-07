@@ -484,10 +484,17 @@ class Point2DEnv(MultitaskEnv, Serializable):
                 for path in paths
             ]))), 2, axis=-1)
 
-            bound_radius = 2.0
+            histogram_margin = 3.0
             bins_per_unit = 2
-            x_bounds = (-2.0, self._reset_positions[0][0] + bound_radius)  # tuple(self.observation_x_bounds)
-            y_bounds = (-2.0, self.fixed_goal[1] + bound_radius)  # tuple(self.observation_y_bounds)
+            pond_center = np.zeros(2)
+            x_bounds = tuple(
+                pond_center[0]
+                + self.pond_radius * np.array((-1, 1))
+                + histogram_margin * np.array((-1, 1)))
+            y_bounds = tuple(
+                pond_center[1]
+                + self.pond_radius * np.array((-1, 1))
+                + histogram_margin * np.array((-1, 1)))
 
             H, xedges, yedges = np.histogram2d(
                 np.squeeze(x),
@@ -516,9 +523,7 @@ class Point2DEnv(MultitaskEnv, Serializable):
             valid_bins = np.logical_and.reduce((
                 (self.pond_radius - valid_margin)
                 <= np.linalg.norm(XY, ord=2, axis=-1),
-                np.linalg.norm(XY, ord=2, axis=-1) < (self.pond_radius + 2.0),
-                -0.5 < XY[..., 0],
-                -0.5 < XY[..., 1],
+                np.linalg.norm(XY, ord=2, axis=-1) < (self.pond_radius + 3.0),
             ))
 
             support_of_valid_bins = (np.sum(H[valid_bins] > 0) / (
@@ -598,7 +603,7 @@ class Point2DEnv(MultitaskEnv, Serializable):
             pond_circle = mpl.patches.Circle(
                 (0, 0),
                 self.pond_radius,
-                facecolor='blue',
+                facecolor=(0.0, 0.0, 1.0, 0.5),
                 edgecolor='blue',
                 fill=True,
             )
@@ -1341,17 +1346,17 @@ class Point2DPondEnv(Point2DEnv):
         self.ball_radius = ball_radius
         self.pond_radius = pond_radius
 
-        distance_from_pond = 0.1
+        distance_from_pond = 1.0
 
         reset_position = (pond_radius + distance_from_pond, 0)
         # total_length = 2 * pond_radius + 44  # 44 = 2 * (max_path_length + 2)
-        max_x = pond_radius + distance_from_pond + 22  # 22 = max_path_length + 2
-        min_x = - (22 - reset_position[0])
-        max_y = max(22, 2 * (pond_radius + 2 * distance_from_pond))
-        min_y = -max_y
+        max_x = pond_radius + distance_from_pond + 10.0  # 22 = max_path_length + 2
+        min_x = - max_x
+        max_y = pond_radius + distance_from_pond + 10.0
+        min_y = - max_y
         observation_bounds = np.array(((min_x, min_y), (max_x, max_y)))
 
-        fixed_goal = fixed_goal or (0, pond_radius + distance_from_pond)
+        fixed_goal = fixed_goal or (0, 0)
 
         super().__init__(
             ball_radius=ball_radius,
@@ -1362,24 +1367,36 @@ class Point2DPondEnv(Point2DEnv):
             **kwargs)
 
     def compute_rewards(self, actions, observations):
-        distances_to_target = np.linalg.norm(
-            observations['state_observation'] - self._target_position,
+        rewards = np.full((*actions.shape[:-1], 1), np.nan)
+
+        pond_center = np.array((0.0, 0.0))
+
+        velocities = actions.copy()
+        positions = observations['state_observation']
+
+        r = np.linalg.norm(
+            positions - pond_center,
+            axis=-1,
             ord=2,
-            keepdims=True,
-            axis=-1)
+            keepdims=True)
 
-        # Add a constant to discourage terminating to the water.
-        max_distance_to_target = np.linalg.norm(
-            self.fixed_goal - self._reset_positions[0], ord=1)
+        positions_ = positions - pond_center
+        theta = (
+            np.arctan2(velocities[..., 1], velocities[..., 0])
+            - np.arctan2(positions_[..., 1], positions_[..., 0])
+        )[..., np.newaxis]
 
-        # EPS = 1e-2
-        # rewards = 10.0 - 3.0 * np.log(distances_to_target + EPS)
+        angular_velocities = 20 * (
+            np.linalg.norm(velocities, ord=2, keepdims=True, axis=-1)
+            * np.sin(theta)
+            # / (r / self.pond_radius))
+            / r)
 
-        rewards = 10 * (max_distance_to_target - distances_to_target)
+        rewards = angular_velocities.copy()
 
         in_water_index = self.in_waters(
             observations['state_observation'])[..., 0]
-        rewards[in_water_index] = 0.0
+        rewards[in_water_index] = -1.0
 
         return rewards
 
