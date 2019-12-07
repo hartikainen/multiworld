@@ -1398,6 +1398,8 @@ class Point2DPondEnv(Point2DEnv):
             observations['state_observation'])[..., 0]
         rewards[in_water_index] = -1.0
 
+        assert not np.any(np.isnan(rewards)), (actions, observations, rewards)
+
         return rewards
 
     def step(self, action, *args, **kwargs):
