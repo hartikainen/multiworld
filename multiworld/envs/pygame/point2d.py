@@ -1372,7 +1372,7 @@ class Point2DPondEnv(Point2DEnv):
         pond_center = np.array((0.0, 0.0))
 
         velocities = actions.copy()
-        positions = observations['state_observation']
+        positions = observations['state_observation'] - actions / 2
 
         r = np.linalg.norm(
             positions - pond_center,
@@ -1403,6 +1403,8 @@ class Point2DPondEnv(Point2DEnv):
         return rewards
 
     def step(self, action, *args, **kwargs):
+        action = action / np.linalg.norm(action, ord=2)
+
         observation, reward, done, info = super(Point2DPondEnv, self).step(
             action, *args, **kwargs)
 
