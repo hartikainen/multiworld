@@ -1340,11 +1340,15 @@ class Point2DPondEnv(Point2DEnv):
             pond_radius=1.0,
             fixed_goal=None,
             target_radius=0.5,
+            angular_velocity_max=1.0,
+            velocity_reward_weight=1.0,
             **kwargs,
     ):
         self.quick_init(locals())
         self.ball_radius = ball_radius
         self.pond_radius = pond_radius
+        self.angular_velocity_max = angular_velocity_max
+        self.velocity_reward_weight = velocity_reward_weight
 
         distance_from_pond = 1.0
 
@@ -1386,13 +1390,13 @@ class Point2DPondEnv(Point2DEnv):
             - np.arctan2(positions_[..., 1], positions_[..., 0])
         )[..., np.newaxis]
 
-        angular_velocities = 20 * (
+        angular_velocities = (
             np.linalg.norm(velocities, ord=2, keepdims=True, axis=-1)
             * np.sin(theta)
-            # / (r / self.pond_radius))
-            / r)
+            / (r / self.pond_radius))
 
-        rewards = angular_velocities.copy()
+        rewards = self.velocity_reward_weight * np.minimum(
+            angular_velocities, self.angular_velocity_max)
 
         in_water_index = self.in_waters(
             observations['state_observation'])[..., 0]
