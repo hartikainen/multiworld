@@ -1370,9 +1370,7 @@ class Point2DPondEnv(Point2DEnv):
             fixed_goal=fixed_goal,
             **kwargs)
 
-    def compute_rewards(self, actions, observations):
-        rewards = np.full((*actions.shape[:-1], 1), np.nan)
-
+    def compute_angular_velocities(self, actions, observations):
         pond_center = np.array((0.0, 0.0))
 
         velocities = actions.copy()
@@ -1395,6 +1393,24 @@ class Point2DPondEnv(Point2DEnv):
             * np.sin(theta)
             / (r / self.pond_radius))
 
+        return angular_velocities
+
+    def compute_angular_velocity(self, action, observation):
+        actions = np.atleast_2d(action)
+        observations = type(observation)((
+            (key, np.atleast_2d(value))
+            for key, value in observation.items()
+        ))
+        angular_velocity = self.compute_angular_velocities(
+            actions, observations).item()
+        return angular_velocity
+
+    def compute_rewards(self, actions, observations):
+        rewards = np.full((*actions.shape[:-1], 1), np.nan)
+
+        angular_velocities = self.compute_angular_velocities(
+            actions, observations)
+
         rewards = self.velocity_reward_weight * np.minimum(
             angular_velocities, self.angular_velocity_max)
 
@@ -1411,6 +1427,9 @@ class Point2DPondEnv(Point2DEnv):
 
         observation, reward, done, info = super(Point2DPondEnv, self).step(
             action, *args, **kwargs)
+
+        info['angular_velocity'] = self.compute_angular_velocity(
+            action, observation)
 
         info['distance_from_water'] = self.distance_from_pond_center(
             observation['state_observation']
