@@ -1362,6 +1362,8 @@ class Point2DPondEnv(Point2DEnv):
 
         fixed_goal = fixed_goal or (0, 0)
 
+        self.cumulative_angular_distance = 0.0
+
         super().__init__(
             ball_radius=ball_radius,
             observation_bounds=observation_bounds,
@@ -1422,22 +1424,34 @@ class Point2DPondEnv(Point2DEnv):
 
         return rewards
 
+    def reset(self, *args, **kwargs):
+        self.cumulative_angular_distance = 0.0
+        return super(Point2DPondEnv, self).reset(*args, **kwargs)
+
     def step(self, action, *args, **kwargs):
         action = action / np.linalg.norm(action, ord=2)
 
         observation, reward, done, info = super(Point2DPondEnv, self).step(
             action, *args, **kwargs)
 
-        info['angular_velocity'] = self.compute_angular_velocity(
+        angular_velocity = self.compute_angular_velocity(
             action, observation)
+        angular_velocity = angular_velocity
+        self.cumulative_angular_distance += angular_velocity
 
-        info['distance_from_water'] = self.distance_from_pond_center(
+        distance_from_water = self.distance_from_pond_center(
             observation['state_observation']
         ) - self.pond_radius
 
         in_water = self.in_water(observation['state_observation']).item()
-        info['in_water'] = in_water
         done = in_water
+
+        info.update({
+            'angular_velocity': angular_velocity,
+            'cumulative_angular_distance': self.cumulative_angular_distance,
+            'distance_from_water': distance_from_water,
+            'in_water': in_water,
+        })
 
         return observation, reward, done, info
 
