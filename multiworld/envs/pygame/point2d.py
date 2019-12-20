@@ -547,7 +547,7 @@ class Point2DEnv(MultitaskEnv, Serializable):
         else:
             iteration = int(max(heatmap_iterations) + 1)
 
-        base_size = 6.4
+        base_size = 12.8
         x_min, x_max = self.observation_x_bounds
         y_min, y_max = self.observation_y_bounds
         width = x_max - x_min
@@ -590,6 +590,55 @@ class Point2DEnv(MultitaskEnv, Serializable):
                 s=20.0,
             )
 
+            if 'perturbed' in path['infos']:
+                perturbed = np.stack(path['infos']['perturbed'], axis=0)
+                perturbed_actions = np.stack(
+                    path['infos']['perturbed_action'], axis=0)[perturbed]
+                perturbed_actions /= np.linalg.norm(
+                    perturbed_actions, ord=2, keepdims=True, axis=-1)
+                perturbed_original_actions = np.stack(
+                    path['infos']['original_action'], axis=0
+                )[perturbed]
+                perturbed_original_actions /= np.linalg.norm(
+                    perturbed_original_actions, ord=2, keepdims=True, axis=-1)
+                perturbed_observations = np.stack(
+                    path['observations']['observation'], axis=0
+                )[perturbed]
+
+                axis.quiver(
+                    perturbed_observations[:, 0],
+                    perturbed_observations[:, 1],
+                    perturbed_original_actions[:, 0],
+                    perturbed_original_actions[:, 1],
+                    units='x',
+                    angles='xy',
+                    scale=1.0,
+                    scale_units='xy',
+                    width=0.05,
+                    headwidth=3,
+                    headlength=5,
+                    linestyle='dashed',
+                    color='green',
+                    zorder=0,
+                )
+
+                axis.quiver(
+                    perturbed_observations[:, 0],
+                    perturbed_observations[:, 1],
+                    perturbed_actions[:, 0],
+                    perturbed_actions[:, 1],
+                    units='xy',
+                    angles='xy',
+                    scale=1.0,
+                    scale_units='xy',
+                    width=0.05,
+                    headwidth=3,
+                    headlength=5,
+                    linestyle='dashed',
+                    color='red',
+                    zorder=0,
+                )
+
         axis.scatter(
             *self.fixed_goal,
             color='red',
@@ -630,7 +679,7 @@ class Point2DEnv(MultitaskEnv, Serializable):
         #     x,
         #     y,
         #     rewards[..., 0].reshape(nx, ny),
-        #     cmap='RdBu')
+        #     cmap='PuBuGn')
 
         # figure.colorbar(c, ax=axis)
 
