@@ -562,7 +562,7 @@ class Point2DEnv(MultitaskEnv, Serializable):
         axis.set_xlim(self.observation_x_bounds)
         axis.set_ylim(self.observation_y_bounds)
 
-        color_map = plt.cm.get_cmap('PuBuGn', len(paths))
+        color_map = plt.cm.get_cmap('tab10', len(paths))
         for i, path in enumerate(paths):
             positions = np.concatenate((
                 path['observations']['observation'],
@@ -697,7 +697,7 @@ class Point2DEnv(MultitaskEnv, Serializable):
         #     x,
         #     y,
         #     rewards[..., 0].reshape(nx, ny),
-        #     cmap='PuBuGn')
+        #     cmap='tab10')
 
         # figure.colorbar(c, ax=axis)
 
@@ -726,7 +726,7 @@ class Point2DEnv(MultitaskEnv, Serializable):
         #         int(np.ptp(y_bounds) * bins_per_unit),
         #     ),
         #     range=(x_bounds, y_bounds),
-        #     cmap="PuBuGn",
+        #     cmap="tab10",
         #     vmax=10,
         # )
 
