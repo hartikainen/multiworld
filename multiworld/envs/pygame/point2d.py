@@ -579,16 +579,33 @@ class Point2DEnv(MultitaskEnv, Serializable):
             )
             axis.scatter(
                 *positions[0],
-                color=color,
+                edgecolors='blue',
+                c=[color],
                 marker='o',
-                s=20.0,
+                s=75.0,
+                # linewidths=2.0,
             )
             axis.scatter(
                 *positions[-1],
-                color=color,
-                marker='x',
-                s=20.0,
+                edgecolors='black',
+                c=[color],
+                marker='X',
+                s=90.0,
+                # linewidths=2.0,
             )
+
+            if 'desired_goal' in path['observations']:
+                goal = path['observations']['desired_goal'][0]
+                assert np.all(path['observations']['desired_goal'] == goal), (
+                    path['observations']['desired_goal'], goal)
+                axis.scatter(
+                    *goal,
+                    edgecolors='red',
+                    c=[color],
+                    marker='*',
+                    s=125.0,
+                    # linewidths=2.0,
+                )
 
             if 'perturbed' in path['infos']:
                 perturbed = np.stack(path['infos']['perturbed'], axis=0)
@@ -639,11 +656,12 @@ class Point2DEnv(MultitaskEnv, Serializable):
                     zorder=0,
                 )
 
-        axis.scatter(
-            *self.fixed_goal,
-            color='red',
-            marker='*',
-            s=30.0)
+        if self.fixed_goal is not None:
+            axis.scatter(
+                *self.fixed_goal,
+                c='red',
+                marker='*',
+                s=125.0)
 
         plot_walls(axis, self.walls)
         if hasattr(self, 'waters'):
