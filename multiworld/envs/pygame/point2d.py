@@ -579,7 +579,7 @@ class Point2DEnv(MultitaskEnv, Serializable):
             )
             axis.scatter(
                 *positions[0],
-                edgecolors='blue',
+                edgecolors='black',
                 c=[color],
                 marker='o',
                 s=75.0,
@@ -600,10 +600,10 @@ class Point2DEnv(MultitaskEnv, Serializable):
                     path['observations']['desired_goal'], goal)
                 axis.scatter(
                     *goal,
-                    edgecolors='red',
+                    edgecolors='black',
                     c=[color],
                     marker='*',
-                    s=125.0,
+                    s=300.0,
                     # linewidths=2.0,
                 )
 
@@ -659,9 +659,10 @@ class Point2DEnv(MultitaskEnv, Serializable):
         if self.fixed_goal is not None:
             axis.scatter(
                 *self.fixed_goal,
+                edgecolors='red',
                 c='red',
                 marker='*',
-                s=125.0)
+                s=300.0)
 
         plot_walls(axis, self.walls)
         if hasattr(self, 'waters'):
