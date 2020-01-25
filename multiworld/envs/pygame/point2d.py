@@ -898,14 +898,15 @@ class Point2DEnv(MultitaskEnv, Serializable):
         self._current_position[:2] = pos[:2]
 
     def set_goal(self, goal, dtype=np.float32):
-        self.fixed_goal = goal['state_observation']
+        # self.fixed_goal = goal['state_observation']
 
-        if self.fixed_goal is not None and self.fixed_goal.size > 2:
-            from pprint import pprint; import ipdb; ipdb.set_trace(context=30)
-            pass
+        # if self.fixed_goal is not None and self.fixed_goal.size > 2:
+        #     from pprint import pprint; import ipdb; ipdb.set_trace(context=30)
+        #     pass
 
-        if hasattr(self, 'optimal_policy'):
-            self.optimal_policy.set_goal(self.fixed_goal)
+        # if hasattr(self, 'optimal_policy'):
+        #     self.optimal_policy.set_goal(self.fixed_goal)
+        pass
 
     """Functions for ImageEnv wrapper"""
 
