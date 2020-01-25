@@ -361,32 +361,32 @@ class Point2DEnv(MultitaskEnv, Serializable):
         if getattr(self, 'wall_shape', None) == '-':
             lefts_success, rights_success = 0, 0
             goals_reached = 0
-            for path in paths:
-                observations = path['observations']['observation']
-                path_length = path['terminals'].size
-                succeeded = np.any(path['infos']['is_success'][-path_length//2:])
-                crossed_x_indices = (
-                    np.flatnonzero(observations[:, 1] > 0))
-                did_not_cross_x = crossed_x_indices.size < 1
+            # for path in paths:
+            #     observations = path['observations']['observation']
+            #     path_length = path['terminals'].size
+            #     succeeded = np.any(path['infos']['is_success'][-path_length//2:])
+            #     crossed_x_indices = (
+            #         np.flatnonzero(observations[:, 1] > 0))
+            #     did_not_cross_x = crossed_x_indices.size < 1
 
-                if did_not_cross_x:
-                    continue
+            #     if did_not_cross_x:
+            #         continue
 
-                first_crossed_x_index = crossed_x_indices[0]
+            #     first_crossed_x_index = crossed_x_indices[0]
 
-                if observations[first_crossed_x_index, 0] <= -self.inner_wall_max_dist + 1.0:
-                    lefts_success += int(succeeded)
-                elif self.inner_wall_max_dist - 1.0  <= observations[first_crossed_x_index, 0]:
-                    rights_success += int(succeeded)
-                else:
-                    raise ValueError("Should never be here!")
+            #     if observations[first_crossed_x_index, 0] <= -self.inner_wall_max_dist + 1.0:
+            #         lefts_success += int(succeeded)
+            #     elif self.inner_wall_max_dist - 1.0  <= observations[first_crossed_x_index, 0]:
+            #         rights_success += int(succeeded)
+            #     else:
+            #         raise ValueError("Should never be here!")
 
-            infos.update({
-                'succeeded_from_both_sides': (
-                    lefts_success > 0 and rights_success > 0),
-                'succeeded_from_left_count': lefts_success,
-                'succeeded_from_right_count': rights_success,
-            })
+            # infos.update({
+            #     'succeeded_from_both_sides': (
+            #         lefts_success > 0 and rights_success > 0),
+            #     'succeeded_from_left_count': lefts_success,
+            #     'succeeded_from_right_count': rights_success,
+            # })
         elif isinstance(self, Point2DBridgeRunEnv):
             x, y = np.split(np.concatenate(tuple(itertools.chain(*[
                 [
