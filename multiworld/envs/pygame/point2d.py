@@ -832,7 +832,7 @@ class Point2DEnv(MultitaskEnv, Serializable):
             raise NotImplementedError()
 
         if d < self.target_radius:
-            reward += 200.0
+            reward += 1.0
 
         return reward
 
